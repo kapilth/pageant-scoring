@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pageant Scoring App</title>
+  <style>
+    :root{--bg:#0f172a;--card:#111827;--muted:#1f2937;--text:#e5e7eb;--accent:#22d3ee;--good:#34d399;--warn:#f59e0b;--bad:#ef4444}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Apple Color Emoji','Segoe UI Emoji';background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg, rgba(17,24,39,.98), rgba(17,24,39,.85));backdrop-filter: blur(6px);border-bottom:1px solid #1f2937}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    h1{margin:0;font-size:20px;letter-spacing:.3px}
+    .subtitle{opacity:.8;font-size:12px}
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .tab{padding:10px 12px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:#fff;cursor:pointer}
+    .tab.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2) inset}
+    .grid{display:grid;gap:12px}
+    .col-2{grid-template-columns:repeat(2,1fr)}
+    .col-3{grid-template-columns:repeat(3,1fr)}
+    @media (max-width:900px){.col-2,.col-3{grid-template-columns:1fr}}
+    .card{background:var(--card);border:1px solid #1f2937;border-radius:12px;padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .row-between{display:flex;gap:10px;align-items:center;justify-content:space-between}
+    label{font-size:12px;opacity:.8}
+    input, select, textarea, button{font-size:14px}
+    input, select, textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:var(--text)}
+    textarea{min-height:70px}
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    th, td{padding:10px;border-bottom:1px solid #243244;text-align:left}
+    th{font-size:12px;opacity:.8}
+    tr:hover td{background:#0b1220}
+    .btn{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#fff;cursor:pointer}
+    .btn.primary{border-color:var(--accent);background:linear-gradient(180deg,#0c1c24,#051015)}
+    .btn.bad{border-color:var(--bad)}
+    .pill{padding:4px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
+    .pill.ok{border-color:var(--good);color:var(--good)}
+    .pill.warn{border-color:var(--warn);color:var(--warn)}
+    .pill.bad{border-color:var(--bad);color:var(--bad)}
+    .muted{opacity:.75}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}
+    .sticky{position:sticky;top:62px;z-index:4}
+    .spacer{height:8px}
+    .hide{display:none}
+    .test-pass{color:#34d399}
+    .test-fail{color:#ef4444}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap row-between">
+      <div>
+        <h1>Pageant Scoring</h1>
+        <div class="subtitle">Local + Cloud Sync • Judge Login • Audit Log • Installable (PWA)</div>
+      </div>
+      <div class="row">
+        <button class="btn" id="exportJsonBtn">Export JSON</button>
+        <label class="btn">Import JSON <input type="file" id="importJsonInput" accept="application/json" style="display:none"></label>
+        <button class="btn" id="exportCsvBtn">Export CSV</button>
+        <button class="btn bad" id="resetBtn">Reset</button>
+      </div>
+    </div>
+    <div class="wrap">
+      <nav id="tabs"></nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="view"></section>
+    <div class="spacer"></div>
+    <details class="card">
+      <summary>Developer Tools: Self Tests</summary>
+      <div id="testOutput" class="mono"></div>
+      <div class="spacer"></div>
+      <button class="btn" id="runTestsBtn">Run Self Tests</button>
+    </details>
+  </main>
+
+  <script>
+    // Minimal, no-Firebase build (Firebase can be wired later). PWA off for Preview reliability.
+
+    // --- Utilities ---
+    function uid(){ return Math.random().toString(36).slice(2,9); }
+    // Escape for CSV, quote when a cell contains ", or , or \n
+    function csvEscape(v){
+      const s = String(v);
+      const doubled = s.replace(/"/g,'""');
+      const needsQuote = /[",\n]/.test(s);
+      return needsQuote ? '"'+doubled+'"' : doubled;
+    }
+    function toCSV(rows){ return rows.map(r=>r.map(v=>csvEscape(v??'')).join(',')).join('\n'); }
+    function htmlAttrEscape(v){ return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    // --- State ---
+    const LS_KEY = 'pageant_scoring_v2';
+    function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch{return null;} }
+    function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+    const state = loadState() || {
+      judges: [],              // {id,name,code}
+      contestants: [],         // {id,name,number,category}
+      rounds: [],              // {id,name,type,sub,weight,maxPoints}
+      scores: {},              // key: `${judgeId}|${contestantId}|${roundId}` -> {score,notes}
+      submissions: {},         // key: `${judgeId}|${roundId}` -> timestamp
+      settings: { roundAggregation:'average' },
+      me: { uid:null, name:'', role:'', judgeId:null },
+      ui: { loginMode:null },
+      audit: []
+    };
+
+    function logAudit(action, details){
+      state.audit.push({ts:new Date().toISOString(), user:state.me.name||'anon', action, details}); saveState();
+    }
+    function scoreKey(j,c,r){ return `${j}|${c}|${r}`; }
+    function sumWeights(){ return state.rounds.reduce((s,r)=> s+(+r.weight||0),0); }
+
+    // --- Routing ---
+    const routes=[
+      {id:'login',label:'Login'},
+      {id:'setup',label:'Setup'},
+      {id:'scoring',label:'Scoring'},
+      {id:'roundResults',label:'Round Results'},
+      {id:'finalResults',label:'Final Results'},
+      {id:'settings',label:'Settings'}
+    ];
+    let currentTab='login';
+
+    function visibleTabs(){
+      if(state.me.role==='admin') return routes.filter(r=>r.id!=='login');
+      if(state.me.role==='judge') return routes.filter(r=>r.id==='scoring');
+      return routes.filter(r=>r.id==='login');
+    }
+    function renderTabs(){
+      const el=document.getElementById('tabs'); el.innerHTML='';
+      visibleTabs().forEach(r=>{ const b=document.createElement('button'); b.className='tab'+(currentTab===r.id?' active':''); b.textContent=r.label; b.onclick=()=>{currentTab=r.id; render();}; el.appendChild(b); });
+    }
+    function render(){
+      renderTabs();
+      const el=document.getElementById('view');
+      if(!state.me.role) currentTab='login';
+      if(currentTab==='login') return renderLogin(el);
+      if(currentTab==='setup') return renderSetup(el);
+      if(currentTab==='scoring') return renderScoring(el);
+      if(currentTab==='roundResults') return renderRoundResults(el);
+      if(currentTab==='finalResults') return renderFinalResults(el);
+      if(currentTab==='settings') return renderSettings(el);
+    }
+
+    // --- Auth helpers ---
+    function goToLogin(mode=null){ state.ui.loginMode=mode; state.me={uid:null,name:'',role:'',judgeId:null}; saveState(); currentTab='login'; render(); }
+    function signInAdmin(name){ state.me.role='admin'; state.me.name=name||'Admin'; saveState(); currentTab='setup'; render(); }
+    function signInJudge(name){ state.me.role='judge'; state.me.name=name||'Judge'; saveState(); currentTab='scoring'; render(); }
+    function signOut(){ state.me={uid:null,name:'',role:'',judgeId:null}; saveState(); currentTab='login'; render(); }
+
+    // --- Views ---
+    function renderLogin(root){
+      const mode=state.ui.loginMode;
+      root.innerHTML=`
+        <div class="grid col-2">
+          <div class="card" ${mode==='judge'?"style='outline:1px solid var(--accent)'":''}>
+            <h3>Judge Login</h3>
+            <div class="spacer"></div>
+            <label>Judge name</label>
+            <input id="jName" placeholder="e.g., Judge Priya">
+            <div class="spacer"></div>
+            <label>Judge PIN (required)</label>
+            <input id="jPin" placeholder="e.g., 7429">
+            <div class="spacer"></div>
+            <button class="btn" id="jLogin">Sign In as Judge</button>
+          </div>
+          <div class="card" ${mode==='admin'?"style='outline:1px solid var(--accent)'":''}>
+            <h3>Admin Login</h3>
+            <div class="spacer"></div>
+            <label>Admin code</label>
+            <input id="aCode" type="password" placeholder="Default: ADMIN123">
+            <div class="spacer"></div>
+            <label>Display name</label>
+            <input id="aName" placeholder="e.g., Event Director">
+            <div class="spacer"></div>
+            <button class="btn primary" id="aLogin">Sign In as Admin</button>
+          </div>
+        </div>`;
+
+      document.getElementById('aLogin').onclick=()=>{
+        const code=(document.getElementById('aCode').value||'').trim();
+        const name=(document.getElementById('aName').value||'').trim()||'Admin';
+        if(code && code!=='ADMIN123' && code!==localStorage.getItem('pageant_admin_code_v1')){ alert('Invalid admin code'); return; }
+        signInAdmin(name);
+      };
+
+      function findJudgeByPin(pin){ const p=(pin||'').trim(); return state.judges.find(j=>String(j.code||'').trim()===p)||null; }
+      document.getElementById('jLogin').onclick=()=>{
+        const name=(document.getElementById('jName').value||'').trim();
+        const pin=(document.getElementById('jPin').value||'').trim();
+        if(!name){ alert('Enter your name'); return; }
+        const j=findJudgeByPin(pin); if(!j){ alert('Invalid/unknown Judge PIN'); return; }
+        state.me.judgeId=j.id; saveState(); signInJudge(name);
+      };
+    }
+
+    function renderSetup(root){
+      const isAdmin=state.me.role==='admin';
+      const weightTotal=sumWeights();
+      root.innerHTML=`
+        <div class="card">
+          <div class="row-between">
+            <div class="row">
+              <h3>Event Setup</h3>
+              <span class="pill">Role: ${state.me.role||'—'}</span>
+              <div class="pill">User: ${state.me.name||'—'}</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="setupOut">Sign Out</button>
+              <button class="btn" id="toJudge">Sign In as Judge</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid col-3">
+          <div class="card ${isAdmin?'':'muted'}">
+            <div class="row-between"><h3>Judges</h3><span class="muted">${state.judges.length}</span></div>
+            <div class="spacer"></div>
+            <div class="row"><input id="jAddName" placeholder="Judge name" ${isAdmin?'':'disabled'}><input id="jAddPin" placeholder="PIN" ${isAdmin?'':'disabled'} style="max-width:140px"><button class="btn primary" id="jAdd" ${isAdmin?'':'disabled'}>Add</button></div>
+            <div class="spacer"></div>
+            <table><thead><tr><th>Name</th><th>PIN</th><th></th></tr></thead><tbody id="jTable"></tbody></table>
+          </div>
+          <div class="card ${isAdmin?'':'muted'}">
+            <div class="row-between"><h3>Contestants</h3><span class="muted">${state.contestants.length}</span></div>
+            <div class="spacer"></div>
+            <div class="grid col-2">
+              <input id="cName" placeholder="Contestant name" ${isAdmin?'':'disabled'}>
+              <input id="cNum" type="number" placeholder="#" ${isAdmin?'':'disabled'}>
+              <input id="cCat" placeholder="Category (e.g., Mrs. India WA)" ${isAdmin?'':'disabled'}>
+              <button class="btn primary" id="cAdd" ${isAdmin?'':'disabled'}>Add</button>
+            </div>
+            <div class="spacer"></div>
+            <table><thead><tr><th>#</th><th>Name</th><th>Category</th><th></th></tr></thead><tbody id="cTable"></tbody></table>
+          </div>
+          <div class="card ${isAdmin?'':'muted'}">
+            <div class="row-between"><h3>Rounds</h3><span class="pill ${Math.abs(weightTotal-100)<=0.5?'ok':'warn'}">Weights: ${weightTotal||0}%</span></div>
+            <div class="spacer"></div>
+            <div class="grid col-2">
+              <input id="rName" placeholder="Round name (e.g., Talent)" ${isAdmin?'':'disabled'}>
+              <input id="rType" placeholder="Type (e.g., Stage)" ${isAdmin?'':'disabled'}>
+              <input id="rSub" placeholder="Sub-round (optional)" ${isAdmin?'':'disabled'}>
+              <input id="rWeight" type="number" placeholder="Weight %" ${isAdmin?'':'disabled'}>
+              <input id="rMax" type="number" placeholder="Max points (0–10)" ${isAdmin?'':'disabled'}>
+              <button class="btn primary" id="rAdd" ${isAdmin?'':'disabled'}>Add</button>
+            </div>
+            <div class="spacer"></div>
+            <table><thead><tr><th>Round</th><th>Type</th><th>Sub</th><th>Weight %</th><th>Max</th><th></th></tr></thead><tbody id="rTable"></tbody></table>
+          </div>
+        </div>`;
+
+      document.getElementById('setupOut').onclick=signOut;
+      document.getElementById('toJudge').onclick=()=>goToLogin('judge');
+
+      const jt=document.getElementById('jTable');
+      jt.innerHTML=state.judges.map(j=>`<tr><td>${j.name}</td><td>${j.code||''}</td><td><button class='btn' data-del='${j.id}'>Remove</button></td></tr>`).join('');
+      jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); saveState(); render(); });
+
+      const ct=document.getElementById('cTable');
+      ct.innerHTML=state.contestants.map(c=>`<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><button class='btn' data-dc='${c.id}'>Remove</button></td></tr>`).join('');
+      ct.querySelectorAll('button[data-dc]').forEach(b=> b.onclick=()=>{ state.contestants=state.contestants.filter(x=>x.id!==b.dataset.dc); saveState(); render(); });
+
+      const rt=document.getElementById('rTable');
+      rt.innerHTML=state.rounds.map(r=>`<tr><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-dr='${r.id}'>Remove</button></td></tr>`).join('');
+      rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); saveState(); render(); });
+
+      if(isAdmin){
+        document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); saveState(); render(); };
+        document.getElementById('cAdd').onclick=()=>{ const n=document.getElementById('cName').value.trim(); const num=parseInt(document.getElementById('cNum').value||''); const cat=document.getElementById('cCat').value.trim(); if(!n) return; state.contestants.push({id:uid(),name:n,number:isNaN(num)?null:num,category:cat}); saveState(); render(); };
+        document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); saveState(); render(); };
+      }
+    }
+
+    function renderScoring(root){
+      const judgeOptions=state.judges.map(j=>`<option value='${j.id}'>${j.name}</option>`).join('');
+      const lockedId=state.me.judgeId; const lock=state.me.role==='judge'&&lockedId;
+      root.innerHTML=`
+        <div class="card sticky">
+          <div class="row-between"><div class="row"><h3>Judge Scoring</h3><span class="pill">Role: ${state.me.role||'—'}</span><div class="pill">User: ${state.me.name||'—'}</div></div><div class="row"><button class="btn" id="sOut">Sign Out</button><button class="btn" id="toAdmin">Sign In as Admin</button></div></div>
+        </div>
+        <div class="grid col-3">
+          <div class="card">
+            <h3>Choose Judge & Round</h3>
+            <div class="spacer"></div>
+            <label>Judge</label>
+            <select id="sJudge" ${lock?'disabled':''}>${judgeOptions}</select>
+            <div class="spacer"></div>
+            <label>Round</label>
+            <select id="sRound">${state.rounds.map(r=>`<option value='${r.id}'>${r.name} ${r.sub?('— '+r.sub):''} (${r.type||'–'}) • Max ${Math.min(r.maxPoints||10,10)}</option>`).join('')}</select>
+          </div>
+          <div class="card" style="grid-column:span 2;">
+            <div class="row-between"><h3>Enter Scores</h3><div class="muted">Contestants: ${state.contestants.length}</div></div>
+            <div class="spacer"></div>
+            <table>
+              <thead><tr><th>#</th><th>Name</th><th>Category</th><th style="width:110px">Score (0–10)</th><th>Notes</th></tr></thead>
+              <tbody id="sBody"></tbody>
+            </table>
+            <div class="spacer"></div>
+            <div class="row-between"><div class="muted">Scores auto-save. Submit to confirm.</div><button class="btn primary" id="sSubmit">Submit Scores</button></div>
+          </div>
+        </div>`;
+
+      document.getElementById('sOut').onclick=signOut;
+      document.getElementById('toAdmin').onclick=()=>goToLogin('admin');
+
+      const jSel=document.getElementById('sJudge'); const rSel=document.getElementById('sRound'); if(lock) jSel.value=lockedId;
+      jSel.onchange=()=>{ if(lock) jSel.value=lockedId; fill(); }; rSel.onchange=fill; fill();
+
+      function fill(){
+        const j=jSel.value, r=rSel.value; const round=state.rounds.find(x=>x.id===r); const body=document.getElementById('sBody');
+        const rows=[...state.contestants].sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ const key=scoreKey(j,c.id,r); const cur=state.scores[key]||{score:'',notes:''}; return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"/></td></tr>`; }).join('');
+        body.innerHTML=rows||`<tr><td colspan="5" class="muted">Add contestants in Setup</td></tr>`;
+        body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; saveState(); inp.value=clamped; }; });
+        body.querySelectorAll('input[data-notes]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.notes; state.scores[key]=state.scores[key]||{}; state.scores[key].notes=inp.value; saveState(); }; });
+      }
+
+      document.getElementById('sSubmit').onclick=()=>{ const key=`${jSel.value}|${rSel.value}`; state.submissions[key]=new Date().toISOString(); saveState(); alert('Scores submitted.'); };
+    }
+
+    function getRoundScore(contestantId, round){
+      const vals=state.judges.map(j=> state.scores[scoreKey(j.id,contestantId,round.id)]).filter(Boolean).map(s=>+s.score||0);
+      if(!vals.length) return null; const total=vals.reduce((a,b)=>a+b,0);
+      const agg=state.settings.roundAggregation==='sum'?total: total/vals.length; return {value:agg, judgesCount:vals.length};
+    }
+
+    function renderRoundResults(root){
+      root.innerHTML=`
+        <div class="card sticky"><div class="row-between"><div class="row" style="gap:16px"><div><label>Round</label><select id="rrRound">${state.rounds.map(r=>`<option value='${r.id}'>${r.name}</option>`).join('')}</select></div><div><label>Sort by</label><select id="rrSort"><option value='desc'>Highest first</option><option value='asc'>Lowest first</option><option value='num'>Contestant #</option><option value='name'>Name</option></select></div></div><div class="row"><button class="btn" id="rrCsv">Download CSV</button><button class="btn" id="rrOut">Sign Out</button><button class="btn" id="rrAdmin">Sign In as Admin</button><button class="btn" id="rrJudge">Sign In as Judge</button></div></div></div>
+        <div class="spacer"></div>
+        <div class="card"><table><thead><tr><th>#</th><th>Name</th><th>Category</th><th>Score (${state.settings.roundAggregation})</th><th>Judges</th></tr></thead><tbody id="rrBody"></tbody></table></div>`;
+      document.getElementById('rrOut').onclick=signOut; document.getElementById('rrAdmin').onclick=()=>goToLogin('admin'); document.getElementById('rrJudge').onclick=()=>goToLogin('judge');
+      const rSel=document.getElementById('rrRound'); const sSel=document.getElementById('rrSort'); const body=document.getElementById('rrBody');
+      function draw(){ const r=state.rounds.find(x=>x.id===rSel.value); let rows=state.contestants.map(ct=>({ct,rs:getRoundScore(ct.id,r)})); const m=sSel.value; if(m==='desc') rows.sort((a,b)=>(b.rs?.value||-1)-(a.rs?.value||-1)); if(m==='asc') rows.sort((a,b)=>(a.rs?.value?? 1e9)-(b.rs?.value??1e9)); if(m==='num') rows.sort((a,b)=>(a.ct.number??9999)-(b.ct.number??9999)); if(m==='name') rows.sort((a,b)=>a.ct.name.localeCompare(b.ct.name)); body.innerHTML=rows.map(({ct,rs})=>`<tr><td>${ct.number??''}</td><td>${ct.name}</td><td>${ct.category||''}</td><td>${rs?rs.value.toFixed(2):'<span class=\"muted\">—</span>'}</td><td>${rs?rs.judgesCount:0}/${state.judges.length}</td></tr>`).join(''); }
+      rSel.onchange=draw; sSel.onchange=draw; draw();
+      document.getElementById('rrCsv').onclick=()=>{ const r=state.rounds.find(x=>x.id===rSel.value); const rows=[["Contestant #","Name","Category",`Score (${state.settings.roundAggregation})`,`Judges`]]; state.contestants.forEach(ct=>{ const rs=getRoundScore(ct.id,r); rows.push([ct.number??'',ct.name,ct.category||'',rs?rs.value.toFixed(2):'',rs?rs.judgesCount:0]); }); download(`${r.name}_round_results.csv`, toCSV(rows)); };
+    }
+
+    function renderFinalResults(root){
+      const totalW=sumWeights();
+      root.innerHTML=`
+        <div class="card sticky"><div class="row-between"><div class="row" style="gap:16px"><div class="pill ${Math.abs(totalW-100)<=0.5?'ok':'warn'}">Total weight: ${totalW||0}%</div><div class="muted">Weights are normalized if not exactly 100%</div></div><div class="row"><button class="btn" id="frCsv">Download CSV</button><button class="btn" id="frOut">Sign Out</button><button class="btn" id="frAdmin">Sign In as Admin</button><button class="btn" id="frJudge">Sign In as Judge</button></div></div></div>
+        <div class="spacer"></div>
+        <div class="card"><table><thead><tr><th>#</th><th>Name</th><th>Category</th>${state.rounds.map(r=>`<th>${r.name}</th>`).join('')}<th>Total (weighted)</th></tr></thead><tbody id="frBody"></tbody></table></div>`;
+      document.getElementById('frOut').onclick=signOut; document.getElementById('frAdmin').onclick=()=>goToLogin('admin'); document.getElementById('frJudge').onclick=()=>goToLogin('judge');
+      function compute(ct){ const tot=sumWeights()||1; let total=0; const parts=[]; state.rounds.forEach(r=>{ const rs=getRoundScore(ct.id,r); const max=r.maxPoints||10; const pct=rs?(rs.value/max)*100:0; const w=(r.weight||0)/tot; const contrib=pct*w; parts.push(contrib); total+=contrib; }); return {total,parts}; }
+      const rows=state.contestants.map(ct=>({ct,fr:compute(ct)})).sort((a,b)=>b.fr.total-a.fr.total);
+      const body=document.getElementById('frBody');
+      body.innerHTML=rows.map(({ct,fr})=>`<tr><td>${ct.number??''}</td><td>${ct.name}</td><td>${ct.category||''}</td>${fr.parts.map(v=>`<td>${v.toFixed(2)}</td>`).join('')}<td><strong>${fr.total.toFixed(2)}</strong></td></tr>`).join('');
+      document.getElementById('frCsv').onclick=()=>{ const head=["Contestant #","Name","Category",...state.rounds.map(r=>r.name),"Total (weighted)"]; const out=[head]; rows.forEach(({ct,fr})=> out.push([ct.number??'',ct.name,ct.category||'',...fr.parts.map(v=>v.toFixed(2)),fr.total.toFixed(2)])); download('final_results_weighted.csv', toCSV(out)); };
+    }
+
+    function renderSettings(root){
+      root.innerHTML=`
+        <div class="grid col-2">
+          <div class="card"><h3>Login</h3><div class="spacer"></div><label>Your name</label><input id="meName" value="${state.me.name||''}" placeholder="e.g., Judge Priya"><div class="spacer"></div><label>Role</label><select id="meRole"><option value="admin" ${state.me.role==='admin'?'selected':''}>Admin</option><option value="judge" ${state.me.role==='judge'?'selected':''}>Judge</option></select><div class="spacer"></div><div class="row"><button class="btn" id="goAdmin">Go Admin</button><button class="btn" id="goJudge">Go Judge</button><button class="btn" id="goLogout">Sign Out</button></div></div>
+          <div class="card"><h3>Admin Code</h3><div class="spacer"></div><label>Set/change the Admin access code (used on the Login page)</label><input id="adminCodeNew" placeholder="e.g., SECRET-2025" type="password"/><div class="spacer"></div><button class="btn" id="saveAdminCode">Save Admin Code</button><div class="spacer"></div><div class="muted">Default is <span class="mono">ADMIN123</span> until you change it.</div></div>
+          <div class="card" style="grid-column:span 2"><div class="row-between"><h3>Audit Log</h3><button class="btn" id="auditCsv">Download CSV</button></div><div class="spacer"></div><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+        </div>`;
+      document.getElementById('meName').onchange=e=>{state.me.name=e.target.value; saveState();};
+      document.getElementById('meRole').onchange=e=>{state.me.role=e.target.value; saveState(); render();};
+      document.getElementById('goAdmin').onclick=()=>signInAdmin(state.me.name||'Admin');
+      document.getElementById('goJudge').onclick=()=>signInJudge(state.me.name||'Judge');
+      document.getElementById('goLogout').onclick=signOut;
+      document.getElementById('saveAdminCode').onclick=()=>{ const v=(document.getElementById('adminCodeNew').value||'').trim(); if(!v){alert('Enter a code'); return;} localStorage.setItem('pageant_admin_code_v1', v); alert('Admin code updated.'); };
+      const body=document.getElementById('auditBody'); body.innerHTML=state.audit.slice(-500).reverse().map(a=>`<tr><td>${a.ts}</td><td>${a.user}</td><td>${a.action}</td><td class='mono'>${typeof a.details==='string'?a.details:JSON.stringify(a.details)}</td></tr>`).join('')||`<tr><td colspan='4' class='muted'>No activity yet</td></tr>`;
+      document.getElementById('auditCsv').onclick=()=>{ const rows=[["ts","user","action","details"],...state.audit.map(a=>[a.ts,a.user,a.action,typeof a.details==='string'?a.details:JSON.stringify(a.details)])]; download('audit.csv', toCSV(rows)); };
+    }
+
+    // --- Header buttons ---
+    function download(filename, text){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=filename; a.click(); }
+    document.getElementById('exportJsonBtn').onclick=()=>{ download('pageant_scoring_data.json', JSON.stringify(state,null,2)); };
+    document.getElementById('exportCsvBtn').onclick=()=>{
+      const rows=[["Judge","Contestant #","Contestant","Category","Round","Sub","Score","Notes"]];
+      state.judges.forEach(j=>{ state.contestants.forEach(c=>{ state.rounds.forEach(r=>{ const s=state.scores[scoreKey(j.id,c.id,r.id)]; if(s){ rows.push([j.name,c.number??'',c.name,c.category||'',r.name,r.sub||'',s.score,s.notes||'']); } }); }); });
+      download('all_scores.csv', toCSV(rows));
+    };
+    document.getElementById('resetBtn').onclick=()=>{ if(confirm('Clear all local data?')){ localStorage.removeItem(LS_KEY); location.reload(); } };
+    document.getElementById('importJsonInput').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new FileReader(); fr.onload=()=>{ try{ const obj=JSON.parse(fr.result); Object.assign(state,obj); saveState(); render(); }catch(err){ alert('Import failed: '+err.message); } }; fr.readAsText(f); };
+
+    // --- Self-tests ---
+    function runTests(){ const out=[]; function test(n,fn){ try{fn(); out.push('✅ '+n);}catch(e){out.push('❌ '+n+' -> '+e.message);} }
+      // CSV escaping
+      test('csvEscape quotes',()=>{ const got=toCSV([["a\"b",1]]); const exp='"a""b"'; const cell=got.split('\n')[0].split(',')[0]; if(cell!==exp) throw new Error('expected '+exp+' got '+cell); });
+      test('toCSV newline wrap',()=>{ const got=toCSV([["x\ny",2]]); const cell=got.split('\n')[0].split(',')[0]; if(cell[0] !== '"' || cell.at(-1) !== '"') throw new Error('newline not quoted'); });
+      test('csvEscape comma',()=>{ const got=toCSV([["a,b"]]); const cell=got.split('\n')[0].split(',')[0]; if(cell!== '"a,b"') throw new Error('comma not quoted'); });
+      // key and aggregation logic
+      test('scoreKey stable',()=>{ if(scoreKey('a','b','c')!=='a|b|c') throw new Error('bad key'); });
+      test('round average',()=>{ const st={judges:[{id:'j1'},{id:'j2'}], contestants:[{id:'c1'}], rounds:[{id:'r1',maxPoints:10}], scores:{}}; st.scores[scoreKey('j1','c1','r1')]={score:8}; st.scores[scoreKey('j2','c1','r1')]={score:6}; const vals=[st.scores[scoreKey('j1','c1','r1')].score, st.scores[scoreKey('j2','c1','r1')].score]; const avg=(vals[0]+vals[1])/2; if(avg!==7) throw new Error('avg incorrect'); });
+      document.getElementById('testOutput').innerHTML=out.map(x=>`<div class='${x.startsWith('✅')?'test-pass':'test-fail'}'>${x}</div>`).join(''); }
+    document.getElementById('runTestsBtn').onclick=runTests;
+
+    // Kick off
+    render();
+  </script>
+</body>
+</html>
