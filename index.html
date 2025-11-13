@@ -343,6 +343,25 @@
     function renderLogin(root){
       const mode=state.ui.loginMode;
       root.innerHTML=`
+        <div class="grid col-1">
+          <!-- Event Code Card - Prominent at top -->
+          <div class="card" style="background:rgba(34,211,238,0.1);border:2px solid rgba(34,211,238,0.5)">
+            <h3>📡 Event Connection</h3>
+            <div class="spacer"></div>
+            <p class="muted" style="font-size:14px">Enter the event code shared by the event organizer to connect to the pageant.</p>
+            <div class="spacer"></div>
+            <label>Event Code</label>
+            <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="font-size:16px">
+            <div class="spacer"></div>
+            ${state.cloud.enabled ? 
+              `<div class="pill ok" style="display:inline-block">✓ Connected to: ${state.cloud.eventCode}</div>` : 
+              `<button class="btn primary" id="connectEventBtn" style="width:100%">Connect to Event</button>`
+            }
+          </div>
+        </div>
+        
+        <div class="spacer"></div>
+        
         <div class="grid col-2">
           <div class="card" ${mode==='judge'?"style='outline:1px solid var(--accent)'":''}>
             <h3>Judge Login</h3>
@@ -368,6 +387,62 @@
           </div>
         </div>`;
 
+      // Event connection handler
+      const connectBtn = document.getElementById('connectEventBtn');
+      if(connectBtn) {
+        connectBtn.onclick = async () => {
+          const eventCode = document.getElementById('loginEventCode').value.trim();
+          if(!eventCode) {
+            alert('Please enter an event code');
+            return;
+          }
+          
+          connectBtn.textContent = 'Connecting...';
+          connectBtn.disabled = true;
+          
+          try {
+            // Use hardcoded Firebase config (secure - same for all users)
+            const firebaseConfig = {
+              apiKey: "AIzaSyCiglilw9_NLuSZUMGgciEnIPwlZ8vVklI",
+              authDomain: "womenfestival2025.firebaseapp.com",
+              projectId: "womenfestival2025",
+              storageBucket: "womenfestival2025.firebasestorage.app",
+              messagingSenderId: "614457754654",
+              appId: "1:614457754654:web:4c0ceeb3c29e38bc2bc1ea"
+            };
+            
+            await initFirebase(firebaseConfig);
+            
+            // Check if event exists
+            const eventDoc = await fb.db.collection('events').doc(eventCode).get();
+            if(!eventDoc.exists) {
+              alert('Event code not found. Please check the code or contact the event organizer.');
+              connectBtn.textContent = 'Connect to Event';
+              connectBtn.disabled = false;
+              return;
+            }
+            
+            state.cloud.enabled = true;
+            state.cloud.eventCode = eventCode;
+            state.cloud.firebaseConfig = firebaseConfig;
+            state.cloud.autoSync = true;
+            saveState();
+            
+            await loadFromFirestore();
+            startFirestoreListener();
+            
+            logAudit('cloud_connected', {eventCode, method: 'login_page'});
+            alert('Connected successfully! You can now sign in.');
+            render();
+            
+          } catch(err) {
+            alert('Connection failed: ' + err.message);
+            connectBtn.textContent = 'Connect to Event';
+            connectBtn.disabled = false;
+          }
+        };
+      }
+
       document.getElementById('aLogin').onclick=()=>{
         const code=(document.getElementById('aCode').value||'').trim();
         const name=(document.getElementById('aName').value||'').trim()||'Admin';
@@ -380,7 +455,11 @@
         const name=(document.getElementById('jName').value||'').trim();
         const pin=(document.getElementById('jPin').value||'').trim();
         if(!name){ alert('Enter your name'); return; }
-        const j=findJudgeByPin(pin); if(!j){ alert('Invalid/unknown Judge PIN'); return; }
+        if(!state.cloud.enabled) {
+          alert('Please connect to an event first using the event code above.');
+          return;
+        }
+        const j=findJudgeByPin(pin); if(!j){ alert('Invalid/unknown Judge PIN. Contact the admin.'); return; }
         state.me.judgeId=j.id; saveState(); signInJudge(name);
       };
     }
