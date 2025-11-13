@@ -5,14 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pageant Scoring App</title>
   <style>
-    :root{--bg:#0f172a;--card:#111827;--muted:#1f2937;--text:#e5e7eb;--accent:#22d3ee;--good:#34d399;--warn:#f59e0b;--bad:#ef4444}
+    :root{--bg:#0a0e1a;--card:#f8fafc;--card-dark:#1e293b;--muted:#475569;--text:#1e293b;--text-light:#f8fafc;--accent:#22d3ee;--accent-hover:#06b6d4;--good:#10b981;--warn:#f59e0b;--bad:#ef4444;--border:#e2e8f0;--shadow:rgba(0,0,0,0.1)}
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Apple Color Emoji','Segoe UI Emoji';
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Helvetica Neue',sans-serif;
       color:var(--text);
       background:var(--bg);
       position:relative;
+      min-height:100vh;
     }
     body::before{
       content:'';
@@ -25,50 +26,61 @@
       background-size:cover;
       background-position:center top;
       background-attachment:fixed;
-      opacity:0.15;
+      opacity:0.35;
       z-index:-1;
-      clip-path:inset(0 0 50% 0);
     }
-    header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg, rgba(17,24,39,.95), rgba(17,24,39,.90));backdrop-filter: blur(10px);border-bottom:1px solid #1f2937;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
-    .wrap{max-width:1200px;margin:0 auto;padding:16px}
-    h1{margin:0;font-size:20px;letter-spacing:.3px}
-    .subtitle{opacity:.8;font-size:12px}
-    nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    .tab{padding:10px 12px;border:1px solid #374151;border-radius:10px;background:rgba(11,18,32,0.85);color:#fff;cursor:pointer;font-weight:500;transition:all 0.2s;backdrop-filter:blur(4px)}
-    .tab:hover{background:rgba(11,18,32,0.95);border-color:#4b5563}
-    .tab.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2) inset;background:rgba(12,28,36,0.9)}
-    .grid{display:grid;gap:12px}
+    header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,0.98);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);box-shadow:0 1px 3px var(--shadow)}
+    .wrap{max-width:1200px;margin:0 auto;padding:20px}
+    h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;color:var(--text)}
+    .subtitle{opacity:.7;font-size:13px;margin-top:4px;font-weight:500}
+    nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
+    .tab{padding:12px 20px;border:none;border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;font-weight:600;font-size:14px;transition:all 0.2s;position:relative}
+    .tab:hover{background:rgba(34,211,238,0.08);color:var(--text)}
+    .tab.active{color:var(--accent);background:rgba(34,211,238,0.12)}
+    .tab.active::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:3px;background:var(--accent);border-radius:3px 3px 0 0}
+    .grid{display:grid;gap:16px}
+    .col-1{grid-template-columns:1fr}
     .col-2{grid-template-columns:repeat(2,1fr)}
     .col-3{grid-template-columns:repeat(3,1fr)}
     @media (max-width:900px){.col-2,.col-3{grid-template-columns:1fr}}
-    .card{background:rgba(17,24,39,0.92);border:1px solid rgba(31,41,55,0.8);border-radius:12px;padding:14px;backdrop-filter:blur(8px);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .row-between{display:flex;gap:10px;align-items:center;justify-content:space-between}
-    label{font-size:12px;opacity:.8}
-    input, select, textarea, button{font-size:14px}
-    input, select, textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #374151;background:rgba(11,18,32,0.85);color:var(--text);backdrop-filter:blur(4px)}
-    input:focus, select:focus, textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2)}
-    textarea{min-height:70px}
+    .card{background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:16px;padding:24px;backdrop-filter:blur(12px);box-shadow:0 4px 6px -1px var(--shadow),0 2px 4px -2px var(--shadow);transition:all 0.2s}
+    .card:hover{box-shadow:0 10px 15px -3px var(--shadow),0 4px 6px -4px var(--shadow)}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .row-between{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    label{font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:8px}
+    input, select, textarea, button{font-size:15px;font-family:inherit}
+    input, select, textarea{width:100%;padding:12px 16px;border-radius:12px;border:2px solid var(--border);background:#fff;color:var(--text);transition:all 0.2s;font-weight:500}
+    input:hover, select:hover, textarea:hover{border-color:#cbd5e1}
+    input:focus, select:focus, textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,0.1)}
+    input::placeholder{color:var(--muted);font-weight:400}
+    textarea{min-height:80px;resize:vertical}
+    select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");background-position:right 12px center;background-repeat:no-repeat;background-size:20px;padding-right:40px}
     table{width:100%;border-collapse:separate;border-spacing:0}
-    th, td{padding:10px;border-bottom:1px solid #243244;text-align:left}
-    th{font-size:12px;opacity:.8;font-weight:600}
-    tr:hover td{background:rgba(11,18,32,0.6)}
-    .btn{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:rgba(11,18,32,0.85);color:#fff;cursor:pointer;font-weight:500;transition:all 0.2s}
-    .btn:hover{background:rgba(11,18,32,0.95);border-color:#4b5563;transform:translateY(-1px)}
-    .btn.primary{border-color:var(--accent);background:linear-gradient(180deg,rgba(12,28,36,0.9),rgba(5,16,21,0.9));box-shadow:0 2px 8px rgba(34,211,238,0.2)}
-    .btn.primary:hover{box-shadow:0 4px 12px rgba(34,211,238,0.3)}
-    .btn.bad{border-color:var(--bad)}
-    .pill{padding:4px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
-    .pill.ok{border-color:var(--good);color:var(--good)}
-    .pill.warn{border-color:var(--warn);color:var(--warn)}
-    .pill.bad{border-color:var(--bad);color:var(--bad)}
-    .muted{opacity:.75}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:12px}
-    .sticky{position:sticky;top:62px;z-index:4}
-    .spacer{height:8px}
+    th, td{padding:14px;border-bottom:1px solid var(--border);text-align:left}
+    th{font-size:13px;font-weight:700;color:var(--muted);background:rgba(248,250,252,0.8)}
+    tr:hover td{background:rgba(34,211,238,0.04)}
+    .btn{padding:12px 24px;border-radius:12px;border:2px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-weight:600;transition:all 0.2s;box-shadow:0 1px 2px var(--shadow)}
+    .btn:hover{background:#f8fafc;border-color:#cbd5e1;transform:translateY(-2px);box-shadow:0 4px 6px -1px var(--shadow)}
+    .btn:active{transform:translateY(0);box-shadow:0 1px 2px var(--shadow)}
+    .btn.primary{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 6px -1px rgba(34,211,238,0.3)}
+    .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);box-shadow:0 10px 15px -3px rgba(34,211,238,0.4)}
+    .btn.bad{border-color:var(--bad);color:var(--bad)}
+    .btn.bad:hover{background:rgba(239,68,68,0.05)}
+    .pill{padding:6px 12px;border-radius:999px;border:2px solid var(--border);font-size:12px;font-weight:600;background:#fff}
+    .pill.ok{border-color:var(--good);color:var(--good);background:rgba(16,185,129,0.08)}
+    .pill.warn{border-color:var(--warn);color:var(--warn);background:rgba(245,158,11,0.08)}
+    .pill.bad{border-color:var(--bad);color:var(--bad);background:rgba(239,68,68,0.08)}
+    .muted{opacity:.7}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:13px;background:rgba(15,23,42,0.05);padding:2px 6px;border-radius:6px}
+    .sticky{position:sticky;top:78px;z-index:4}
+    .spacer{height:12px}
     .hide{display:none}
-    .test-pass{color:#34d399}
-    .test-fail{color:#ef4444}
+    .test-pass{color:#10b981;font-weight:600}
+    .test-fail{color:#ef4444;font-weight:600}
+    h2,h3,h4{color:var(--text);font-weight:700;margin-top:0}
+    h2{font-size:20px;margin-bottom:8px}
+    h3{font-size:18px;margin-bottom:6px}
+    h4{font-size:16px;margin-bottom:6px}
   </style>
 </head>
 <body>
@@ -345,17 +357,17 @@
       root.innerHTML=`
         <div class="grid col-1">
           <!-- Event Code Card - Prominent at top -->
-          <div class="card" style="background:rgba(34,211,238,0.1);border:2px solid rgba(34,211,238,0.5)">
-            <h3>📡 Event Connection</h3>
+          <div class="card" style="background:rgba(34,211,238,0.08);border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)">
+            <h3 style="color:var(--accent)">📡 Event Connection</h3>
             <div class="spacer"></div>
             <p class="muted" style="font-size:14px">Enter the event code shared by the event organizer to connect to the pageant.</p>
             <div class="spacer"></div>
             <label>Event Code</label>
-            <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="font-size:16px">
+            <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="font-size:16px;font-weight:600">
             <div class="spacer"></div>
             ${state.cloud.enabled ? 
-              `<div class="pill ok" style="display:inline-block">✓ Connected to: ${state.cloud.eventCode}</div>` : 
-              `<button class="btn primary" id="connectEventBtn" style="width:100%">Connect to Event</button>`
+              `<div class="pill ok" style="display:inline-block;font-size:14px">✓ Connected to: ${state.cloud.eventCode}</div>` : 
+              `<button class="btn primary" id="connectEventBtn" style="width:100%;padding:14px">Connect to Event</button>`
             }
           </div>
         </div>
@@ -363,19 +375,19 @@
         <div class="spacer"></div>
         
         <div class="grid col-2">
-          <div class="card" ${mode==='judge'?"style='outline:1px solid var(--accent)'":''}>
-            <h3>Judge Login</h3>
+          <div class="card" ${mode==='judge'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
+            <h3>👨‍⚖️ Judge Login</h3>
             <div class="spacer"></div>
             <label>Judge name</label>
             <input id="jName" placeholder="e.g., Judge Priya">
             <div class="spacer"></div>
             <label>Judge PIN (required)</label>
-            <input id="jPin" placeholder="e.g., 7429">
+            <input id="jPin" placeholder="e.g., 7429" type="number">
             <div class="spacer"></div>
-            <button class="btn" id="jLogin">Sign In as Judge</button>
+            <button class="btn primary" id="jLogin" style="width:100%">Sign In as Judge</button>
           </div>
-          <div class="card" ${mode==='admin'?"style='outline:1px solid var(--accent)'":''}>
-            <h3>Admin Login</h3>
+          <div class="card" ${mode==='admin'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
+            <h3>👑 Admin Login</h3>
             <div class="spacer"></div>
             <label>Admin code</label>
             <input id="aCode" type="password" placeholder="Default: ADMIN123">
@@ -383,7 +395,7 @@
             <label>Display name</label>
             <input id="aName" placeholder="e.g., Event Director">
             <div class="spacer"></div>
-            <button class="btn primary" id="aLogin">Sign In as Admin</button>
+            <button class="btn primary" id="aLogin" style="width:100%">Sign In as Admin</button>
           </div>
         </div>`;
 
