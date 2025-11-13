@@ -7,31 +7,56 @@
   <style>
     :root{--bg:#0f172a;--card:#111827;--muted:#1f2937;--text:#e5e7eb;--accent:#22d3ee;--good:#34d399;--warn:#f59e0b;--bad:#ef4444}
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Apple Color Emoji','Segoe UI Emoji';background:var(--bg);color:var(--text)}
-    header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg, rgba(17,24,39,.98), rgba(17,24,39,.85));backdrop-filter: blur(6px);border-bottom:1px solid #1f2937}
+    body{
+      margin:0;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial,'Apple Color Emoji','Segoe UI Emoji';
+      color:var(--text);
+      background:var(--bg);
+      position:relative;
+    }
+    body::before{
+      content:'';
+      position:fixed;
+      top:0;
+      left:0;
+      width:100%;
+      height:100%;
+      background-image:url('file:///C:/Users/kapilth/Downloads/women-festival-2025-new.jpg');
+      background-size:cover;
+      background-position:center top;
+      background-attachment:fixed;
+      opacity:0.15;
+      z-index:-1;
+      clip-path:inset(0 0 50% 0);
+    }
+    header{position:sticky;top:0;z-index:5;background:linear-gradient(180deg, rgba(17,24,39,.95), rgba(17,24,39,.90));backdrop-filter: blur(10px);border-bottom:1px solid #1f2937;box-shadow:0 4px 12px rgba(0,0,0,0.3)}
     .wrap{max-width:1200px;margin:0 auto;padding:16px}
     h1{margin:0;font-size:20px;letter-spacing:.3px}
     .subtitle{opacity:.8;font-size:12px}
     nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
-    .tab{padding:10px 12px;border:1px solid #374151;border-radius:10px;background:#0b1220;color:#fff;cursor:pointer}
-    .tab.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2) inset}
+    .tab{padding:10px 12px;border:1px solid #374151;border-radius:10px;background:rgba(11,18,32,0.85);color:#fff;cursor:pointer;font-weight:500;transition:all 0.2s;backdrop-filter:blur(4px)}
+    .tab:hover{background:rgba(11,18,32,0.95);border-color:#4b5563}
+    .tab.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2) inset;background:rgba(12,28,36,0.9)}
     .grid{display:grid;gap:12px}
     .col-2{grid-template-columns:repeat(2,1fr)}
     .col-3{grid-template-columns:repeat(3,1fr)}
     @media (max-width:900px){.col-2,.col-3{grid-template-columns:1fr}}
-    .card{background:var(--card);border:1px solid #1f2937;border-radius:12px;padding:14px}
+    .card{background:rgba(17,24,39,0.92);border:1px solid rgba(31,41,55,0.8);border-radius:12px;padding:14px;backdrop-filter:blur(8px);box-shadow:0 2px 8px rgba(0,0,0,0.3)}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .row-between{display:flex;gap:10px;align-items:center;justify-content:space-between}
     label{font-size:12px;opacity:.8}
     input, select, textarea, button{font-size:14px}
-    input, select, textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:var(--text)}
+    input, select, textarea{width:100%;padding:10px;border-radius:10px;border:1px solid #374151;background:rgba(11,18,32,0.85);color:var(--text);backdrop-filter:blur(4px)}
+    input:focus, select:focus, textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(34,211,238,.2)}
     textarea{min-height:70px}
     table{width:100%;border-collapse:separate;border-spacing:0}
     th, td{padding:10px;border-bottom:1px solid #243244;text-align:left}
-    th{font-size:12px;opacity:.8}
-    tr:hover td{background:#0b1220}
-    .btn{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:#0b1220;color:#fff;cursor:pointer}
-    .btn.primary{border-color:var(--accent);background:linear-gradient(180deg,#0c1c24,#051015)}
+    th{font-size:12px;opacity:.8;font-weight:600}
+    tr:hover td{background:rgba(11,18,32,0.6)}
+    .btn{padding:10px 12px;border-radius:10px;border:1px solid #374151;background:rgba(11,18,32,0.85);color:#fff;cursor:pointer;font-weight:500;transition:all 0.2s}
+    .btn:hover{background:rgba(11,18,32,0.95);border-color:#4b5563;transform:translateY(-1px)}
+    .btn.primary{border-color:var(--accent);background:linear-gradient(180deg,rgba(12,28,36,0.9),rgba(5,16,21,0.9));box-shadow:0 2px 8px rgba(34,211,238,0.2)}
+    .btn.primary:hover{box-shadow:0 4px 12px rgba(34,211,238,0.3)}
     .btn.bad{border-color:var(--bad)}
     .pill{padding:4px 8px;border-radius:999px;border:1px solid #374151;font-size:12px}
     .pill.ok{border-color:var(--good);color:var(--good)}
@@ -51,13 +76,10 @@
     <div class="wrap row-between">
       <div>
         <h1>Pageant Scoring</h1>
-        <div class="subtitle">Local + Cloud Sync • Judge Login • Audit Log • Installable (PWA)</div>
+        <div class="subtitle">Firestore Cloud Sync • Judge Login • Audit Log • Installable (PWA)</div>
       </div>
-      <div class="row">
-        <button class="btn" id="exportJsonBtn">Export JSON</button>
-        <label class="btn">Import JSON <input type="file" id="importJsonInput" accept="application/json" style="display:none"></label>
-        <button class="btn" id="exportCsvBtn">Export CSV</button>
-        <button class="btn bad" id="resetBtn">Reset</button>
+      <div class="row" id="adminControls">
+        <!-- Admin-only controls - hidden for judges -->
       </div>
     </div>
     <div class="wrap">
@@ -68,16 +90,30 @@
   <main class="wrap">
     <section id="view"></section>
     <div class="spacer"></div>
-    <details class="card">
-      <summary>Developer Tools: Self Tests</summary>
+    <details class="card" id="developerTools" style="display:none">
+      <summary>Developer Tools: Self Tests & Admin Actions</summary>
       <div id="testOutput" class="mono"></div>
       <div class="spacer"></div>
       <button class="btn" id="runTestsBtn">Run Self Tests</button>
+      <div class="spacer"></div>
+      <h4>Unlock Submitted Scores</h4>
+      <p class="muted" style="font-size:12px">Select a judge and round to unlock their submitted scores</p>
+      <div id="submissionsList" class="muted" style="font-size:12px;margin-bottom:8px"></div>
+      <div class="row">
+        <select id="unlockJudge" style="width:200px"></select>
+        <select id="unlockRound" style="width:200px"></select>
+        <button class="btn bad" id="unlockBtn">Unlock Scores</button>
+      </div>
     </details>
   </main>
 
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+
   <script>
-    // Minimal, no-Firebase build (Firebase can be wired later). PWA off for Preview reliability.
+    // Pageant Scoring App with Firestore Integration
 
     // --- Utilities ---
     function uid(){ return Math.random().toString(36).slice(2,9); }
@@ -105,11 +141,18 @@
       settings: { roundAggregation:'average' },
       me: { uid:null, name:'', role:'', judgeId:null },
       ui: { loginMode:null },
-      audit: []
+      audit: [],
+      cloud: { enabled:false, eventCode:'', autoSync:true, firebaseConfig:null }
     };
 
+    // Firebase handles
+    let fb = { app:null, db:null, auth:null, unsub:null };
+
     function logAudit(action, details){
-      state.audit.push({ts:new Date().toISOString(), user:state.me.name||'anon', action, details}); saveState();
+      const entry = {ts:new Date().toISOString(), user:state.me.name||'anon', action, details};
+      state.audit.push(entry); 
+      saveState();
+      if(state.cloud.enabled) pushAudit(entry);
     }
     function scoreKey(j,c,r){ return `${j}|${c}|${r}`; }
     function sumWeights(){ return state.rounds.reduce((s,r)=> s+(+r.weight||0),0); }
@@ -136,6 +179,7 @@
     }
     function render(){
       renderTabs();
+      updateAdminControls();
       const el=document.getElementById('view');
       if(!state.me.role) currentTab='login';
       if(currentTab==='login') return renderLogin(el);
@@ -144,6 +188,43 @@
       if(currentTab==='roundResults') return renderRoundResults(el);
       if(currentTab==='finalResults') return renderFinalResults(el);
       if(currentTab==='settings') return renderSettings(el);
+      
+      // Populate unlock controls after render (admin only)
+      setTimeout(()=>{
+        if(state.me && state.me.role === 'admin'){
+          populateUnlockSelects();
+          setupUnlockButton();
+        }
+      }, 0);
+    }
+
+    // Update admin controls visibility
+    function updateAdminControls(){
+      const isAdmin = state.me && state.me.role === 'admin';
+      const adminControls = document.getElementById('adminControls');
+      const developerTools = document.getElementById('developerTools');
+      
+      // Show or hide admin controls based on role
+      if(isAdmin){
+        adminControls.innerHTML = `
+          <button id="exportJsonBtn">Export JSON</button>
+          <button id="exportCsvBtn">Export CSV</button>
+          <button onclick="document.getElementById('importJsonInput').click()">Import JSON</button>
+          <input type="file" id="importJsonInput" accept=".json" style="display:none">
+          <button id="resetBtn" style="background:#e74c3c">Reset All</button>
+        `;
+        
+        // Wire up event handlers to named functions
+        document.getElementById('exportJsonBtn').onclick = exportJson;
+        document.getElementById('exportCsvBtn').onclick = exportCsv;
+        document.getElementById('resetBtn').onclick = resetApp;
+        document.getElementById('importJsonInput').onchange = importJson;
+        
+        developerTools.style.display = 'block';
+      } else {
+        adminControls.innerHTML = '';
+        developerTools.style.display = 'none';
+      }
     }
 
     // --- Auth helpers ---
@@ -151,6 +232,112 @@
     function signInAdmin(name){ state.me.role='admin'; state.me.name=name||'Admin'; saveState(); currentTab='setup'; render(); }
     function signInJudge(name){ state.me.role='judge'; state.me.name=name||'Judge'; saveState(); currentTab='scoring'; render(); }
     function signOut(){ state.me={uid:null,name:'',role:'',judgeId:null}; saveState(); currentTab='login'; render(); }
+
+    // --- Firestore Functions ---
+    async function initFirebase(config){
+      if(fb.app) return; // Already initialized
+      try{
+        fb.app = firebase.initializeApp(config);
+        fb.db = firebase.firestore();
+        fb.auth = firebase.auth();
+        state.cloud.firebaseConfig = config;
+        console.log('Firebase initialized successfully');
+      }catch(err){
+        console.error('Firebase init error:', err);
+        throw err;
+      }
+    }
+
+    function eventDoc(){ 
+      return fb.db.collection('events').doc(state.cloud.eventCode||'default'); 
+    }
+
+    function startFirestoreListener(){
+      if(!state.cloud.enabled || !fb.db) return;
+      if(fb.unsub) { fb.unsub(); fb.unsub = null; }
+      
+      fb.unsub = eventDoc().onSnapshot(snap=>{
+        const data = snap.data();
+        if(!data) return;
+        
+        // Merge cloud data into local state but keep my user session
+        const { me, cloud, ui, ...rest } = data;
+        const keep = { me: state.me, cloud: state.cloud, ui: state.ui };
+        Object.assign(state, rest, keep);
+        saveState();
+        render();
+      }, err => {
+        console.error('Firestore listener error:', err);
+      });
+    }
+
+    let syncTimer = null;
+    async function syncToFirestore(immediate=false){
+      if(!state.cloud.enabled || !fb.db) return;
+      if(!state.cloud.autoSync && !immediate) return;
+      
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(async ()=>{
+        try{
+          const dataToSync = {
+            judges: state.judges,
+            contestants: state.contestants,
+            rounds: state.rounds,
+            scores: state.scores,
+            submissions: state.submissions,
+            settings: state.settings,
+            audit: state.audit.slice(-500), // Last 500 entries
+            lastSync: new Date().toISOString()
+          };
+          await eventDoc().set(dataToSync, {merge:true});
+          console.log('Synced to Firestore');
+        }catch(err){
+          console.error('Sync error:', err);
+        }
+      }, immediate ? 0 : 500);
+    }
+
+    async function pushAudit(entry){
+      if(!state.cloud.enabled || !fb.db) return;
+      try{
+        await eventDoc().collection('audit').add(entry);
+      }catch(e){
+        console.warn('Audit push failed:', e);
+      }
+    }
+
+    async function loadFromFirestore(){
+      if(!state.cloud.enabled || !fb.db) return;
+      try{
+        const snap = await eventDoc().get();
+        if(snap.exists){
+          const data = snap.data();
+          const { me, cloud, ui, ...rest } = data;
+          const keep = { me: state.me, cloud: state.cloud, ui: state.ui };
+          Object.assign(state, rest, keep);
+          
+          // Load audit logs from subcollection
+          const auditSnap = await eventDoc().collection('audit').orderBy('ts', 'asc').get();
+          const auditFromFirestore = auditSnap.docs.map(doc => doc.data());
+          
+          // Merge with local audit logs (avoid duplicates by timestamp+action)
+          const mergedAudit = [...state.audit];
+          auditFromFirestore.forEach(entry => {
+            const exists = mergedAudit.some(a => a.ts === entry.ts && a.action === entry.action);
+            if(!exists) mergedAudit.push(entry);
+          });
+          
+          // Sort by timestamp
+          state.audit = mergedAudit.sort((a,b) => a.ts.localeCompare(b.ts));
+          
+          saveState();
+          render();
+          console.log('Loaded from Firestore (including audit logs)');
+        }
+      }catch(err){
+        console.error('Load from Firestore error:', err);
+      }
+    }
 
     // --- Views ---
     function renderLogin(root){
@@ -208,6 +395,7 @@
               <h3>Event Setup</h3>
               <span class="pill">Role: ${state.me.role||'—'}</span>
               <div class="pill">User: ${state.me.name||'—'}</div>
+              ${state.cloud.enabled?`<span class="pill ok">☁ Cloud: ${state.cloud.eventCode}</span>`:'<span class="pill warn">⚠ Local Only</span>'}
             </div>
             <div class="row">
               <button class="btn" id="setupOut">Sign Out</button>
@@ -256,20 +444,20 @@
 
       const jt=document.getElementById('jTable');
       jt.innerHTML=state.judges.map(j=>`<tr><td>${j.name}</td><td>${j.code||''}</td><td><button class='btn' data-del='${j.id}'>Remove</button></td></tr>`).join('');
-      jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); saveState(); render(); });
+      jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); logAudit('remove_judge',b.dataset.del); saveState(); syncToFirestore(); render(); });
 
       const ct=document.getElementById('cTable');
       ct.innerHTML=state.contestants.map(c=>`<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><button class='btn' data-dc='${c.id}'>Remove</button></td></tr>`).join('');
-      ct.querySelectorAll('button[data-dc]').forEach(b=> b.onclick=()=>{ state.contestants=state.contestants.filter(x=>x.id!==b.dataset.dc); saveState(); render(); });
+      ct.querySelectorAll('button[data-dc]').forEach(b=> b.onclick=()=>{ state.contestants=state.contestants.filter(x=>x.id!==b.dataset.dc); logAudit('remove_contestant',b.dataset.dc); saveState(); syncToFirestore(); render(); });
 
       const rt=document.getElementById('rTable');
       rt.innerHTML=state.rounds.map(r=>`<tr><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-dr='${r.id}'>Remove</button></td></tr>`).join('');
-      rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); saveState(); render(); });
+      rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); logAudit('remove_round',b.dataset.dr); saveState(); syncToFirestore(); render(); });
 
       if(isAdmin){
-        document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); saveState(); render(); };
-        document.getElementById('cAdd').onclick=()=>{ const n=document.getElementById('cName').value.trim(); const num=parseInt(document.getElementById('cNum').value||''); const cat=document.getElementById('cCat').value.trim(); if(!n) return; state.contestants.push({id:uid(),name:n,number:isNaN(num)?null:num,category:cat}); saveState(); render(); };
-        document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); saveState(); render(); };
+        document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); logAudit('add_judge',n); saveState(); syncToFirestore(); render(); };
+        document.getElementById('cAdd').onclick=()=>{ const n=document.getElementById('cName').value.trim(); const num=parseInt(document.getElementById('cNum').value||''); const cat=document.getElementById('cCat').value.trim(); if(!n) return; state.contestants.push({id:uid(),name:n,number:isNaN(num)?null:num,category:cat}); logAudit('add_contestant',n); saveState(); syncToFirestore(); render(); };
+        document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); logAudit('add_round',n); saveState(); syncToFirestore(); render(); };
       }
     }
 
@@ -298,7 +486,7 @@
               <tbody id="sBody"></tbody>
             </table>
             <div class="spacer"></div>
-            <div class="row-between"><div class="muted">Scores auto-save. Submit to confirm.</div><button class="btn primary" id="sSubmit">Submit Scores</button></div>
+            <div class="row-between"><div class="muted" id="sMessage">Scores auto-save. Submit to confirm.</div><button class="btn primary" id="sSubmit">Submit Scores</button></div>
           </div>
         </div>`;
 
@@ -310,13 +498,77 @@
 
       function fill(){
         const j=jSel.value, r=rSel.value; const round=state.rounds.find(x=>x.id===r); const body=document.getElementById('sBody');
-        const rows=[...state.contestants].sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ const key=scoreKey(j,c.id,r); const cur=state.scores[key]||{score:'',notes:''}; return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"/></td></tr>`; }).join('');
+        const submissionKey=`${j}|${r}`;
+        const isSubmitted=!!state.submissions[submissionKey];
+        const disabledAttr=isSubmitted?' disabled':'';
+        const rows=[...state.contestants].sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ const key=scoreKey(j,c.id,r); const cur=state.scores[key]||{score:'',notes:''}; return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; }).join('');
         body.innerHTML=rows||`<tr><td colspan="5" class="muted">Add contestants in Setup</td></tr>`;
-        body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; saveState(); inp.value=clamped; }; });
-        body.querySelectorAll('input[data-notes]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.notes; state.scores[key]=state.scores[key]||{}; state.scores[key].notes=inp.value; saveState(); }; });
+        
+        if(!isSubmitted){
+          body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; const [jId,cId,rId]=key.split('|'); const judge=state.judges.find(j=>j.id===jId); const contestant=state.contestants.find(c=>c.id===cId); const round=state.rounds.find(r=>r.id===rId); logAudit('set_score',`${judge?.name} → ${contestant?.name} (${round?.name}): ${clamped}`); saveState(); syncToFirestore(); inp.value=clamped; }; });
+          body.querySelectorAll('input[data-notes]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.notes; state.scores[key]=state.scores[key]||{}; state.scores[key].notes=inp.value; saveState(); syncToFirestore(); }; });
+        }
+        
+        // Update submit button
+        const submitBtn=document.getElementById('sSubmit');
+        const messageEl=document.getElementById('sMessage');
+        if(isSubmitted){
+          submitBtn.textContent='✓ Submitted';
+          submitBtn.disabled=true;
+          submitBtn.style.opacity='0.6';
+          submitBtn.style.cursor='not-allowed';
+          messageEl.innerHTML='<span style="color:var(--good)">✓ Scores submitted and locked. Contact admin to unlock.</span>';
+        } else {
+          submitBtn.textContent='Submit Scores';
+          submitBtn.disabled=false;
+          submitBtn.style.opacity='1';
+          submitBtn.style.cursor='pointer';
+          messageEl.textContent='Scores auto-save. Submit to confirm.';
+        }
       }
 
-      document.getElementById('sSubmit').onclick=()=>{ const key=`${jSel.value}|${rSel.value}`; state.submissions[key]=new Date().toISOString(); saveState(); alert('Scores submitted.'); };
+      document.getElementById('sSubmit').onclick=()=>{ 
+        const judgeId = jSel.value;
+        const roundId = rSel.value;
+        const key = `${judgeId}|${roundId}`;
+        
+        // Check if any scores have been entered for this judge and round
+        let filledScores = 0;
+        let emptyScores = 0;
+        
+        state.contestants.forEach(contestant => {
+          const scoreKey = `${judgeId}|${contestant.id}|${roundId}`;
+          const scoreData = state.scores[scoreKey];
+          
+          if(scoreData && scoreData.score !== '' && scoreData.score !== null && scoreData.score !== undefined) {
+            filledScores++;
+          } else {
+            emptyScores++;
+          }
+        });
+        
+        // Validate that at least some scores are filled
+        if(filledScores === 0) {
+          alert('Please enter at least one score before submitting.');
+          return;
+        }
+        
+        // Warn if not all scores are filled
+        if(emptyScores > 0) {
+          const totalContestants = state.contestants.length;
+          if(!confirm(`You have only scored ${filledScores} out of ${totalContestants} contestants.\n\nEmpty scores will be counted as 0.\n\nDo you want to submit anyway?`)) {
+            return;
+          }
+        }
+        
+        // Submit
+        state.submissions[key] = new Date().toISOString(); 
+        logAudit('submit_scores', key); 
+        saveState(); 
+        syncToFirestore(true); 
+        alert('Scores submitted and locked.'); 
+        fill(); // Refresh to show locked state
+      };
     }
 
     function getRoundScore(contestantId, round){
@@ -354,30 +606,314 @@
     function renderSettings(root){
       root.innerHTML=`
         <div class="grid col-2">
-          <div class="card"><h3>Login</h3><div class="spacer"></div><label>Your name</label><input id="meName" value="${state.me.name||''}" placeholder="e.g., Judge Priya"><div class="spacer"></div><label>Role</label><select id="meRole"><option value="admin" ${state.me.role==='admin'?'selected':''}>Admin</option><option value="judge" ${state.me.role==='judge'?'selected':''}>Judge</option></select><div class="spacer"></div><div class="row"><button class="btn" id="goAdmin">Go Admin</button><button class="btn" id="goJudge">Go Judge</button><button class="btn" id="goLogout">Sign Out</button></div></div>
-          <div class="card"><h3>Admin Code</h3><div class="spacer"></div><label>Set/change the Admin access code (used on the Login page)</label><input id="adminCodeNew" placeholder="e.g., SECRET-2025" type="password"/><div class="spacer"></div><button class="btn" id="saveAdminCode">Save Admin Code</button><div class="spacer"></div><div class="muted">Default is <span class="mono">ADMIN123</span> until you change it.</div></div>
-          <div class="card" style="grid-column:span 2"><div class="row-between"><h3>Audit Log</h3><button class="btn" id="auditCsv">Download CSV</button></div><div class="spacer"></div><table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div>
+          <div class="card">
+            <h3>Login</h3>
+            <div class="spacer"></div>
+            <label>Your name</label>
+            <input id="meName" value="${state.me.name||''}" placeholder="e.g., Judge Priya">
+            <div class="spacer"></div>
+            <label>Role</label>
+            <select id="meRole">
+              <option value="admin" ${state.me.role==='admin'?'selected':''}>Admin</option>
+              <option value="judge" ${state.me.role==='judge'?'selected':''}>Judge</option>
+            </select>
+            <div class="spacer"></div>
+            <div class="row">
+              <button class="btn" id="goAdmin">Go Admin</button>
+              <button class="btn" id="goJudge">Go Judge</button>
+              <button class="btn" id="goLogout">Sign Out</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Cloud Sync (Firestore)</h3>
+            <div class="spacer"></div>
+            <div class="pill ${state.cloud.enabled?'ok':'warn'}">${state.cloud.enabled?'✓ Enabled':'○ Disabled'}</div>
+            <div class="spacer"></div>
+            
+            <!-- Quick Connect Option -->
+            <div style="background:rgba(34,211,238,0.1);padding:12px;border-radius:8px;border:1px solid rgba(34,211,238,0.3);margin-bottom:12px">
+              <h4 style="margin:0 0 8px 0;font-size:14px">⚡ Quick Connect (Recommended)</h4>
+              <p class="muted" style="font-size:12px;margin:0 0 8px 0">Just enter the event code shared by the admin</p>
+              <div class="row">
+                <input id="quickEventCode" placeholder="e.g., pageant2025" style="flex:1">
+                <button class="btn primary" id="quickConnectBtn">Connect</button>
+              </div>
+            </div>
+            
+            <!-- Manual Setup Option -->
+            <details>
+              <summary style="cursor:pointer;font-weight:500;margin-bottom:8px">🔧 Manual Setup (Admin Only - First Time)</summary>
+              <div class="spacer"></div>
+              <label>Firebase Config JSON</label>
+              <textarea id="fbConfig" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'>${state.cloud.firebaseConfig?JSON.stringify(state.cloud.firebaseConfig,null,2):''}</textarea>
+              <div class="spacer"></div>
+              <label>Event Code (create a unique code for this event)</label>
+              <div class="row">
+                <input id="eventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-gWf7kX2" style="flex:1">
+                <button class="btn" id="generateCodeBtn" title="Generate random secure code">🎲 Generate</button>
+              </div>
+              <div class="spacer"></div>
+              <div class="muted" style="font-size:11px;padding:8px;background:rgba(251,191,36,0.1);border-radius:6px;border:1px solid rgba(251,191,36,0.3)">
+                ⚠️ <strong>Security Note:</strong> Use a unique, hard-to-guess code. Share only with trusted participants.
+              </div>
+              <div class="spacer"></div>
+              <div class="row">
+                <button class="btn primary" id="enableCloudBtn">${state.cloud.enabled?'Reconnect':'Enable Cloud & Save Config'}</button>
+              </div>
+            </details>
+            
+            <div class="spacer"></div>
+            <div class="row" style="margin-top:12px">
+              <button class="btn" id="syncNowBtn" ${state.cloud.enabled?'':'disabled'}>Sync Now</button>
+              <button class="btn bad" id="disableCloudBtn" ${state.cloud.enabled?'':'disabled'}>Disable</button>
+            </div>
+            <div class="spacer"></div>
+            <label class="row"><input type="checkbox" id="autoSyncChk" ${state.cloud.autoSync?'checked':''}/> Auto-sync</label>
+            <div class="spacer"></div>
+            <div class="muted" style="font-size:12px">Cloud stores data in Firestore under <span class="mono">events/{eventCode}</span>. All devices with same event code share data in real-time.</div>
+          </div>
+
+          <div class="card">
+            <h3>Admin Code</h3>
+            <div class="spacer"></div>
+            <label>Set/change the Admin access code (used on the Login page)</label>
+            <input id="adminCodeNew" placeholder="e.g., SECRET-2025" type="password"/>
+            <div class="spacer"></div>
+            <button class="btn" id="saveAdminCode">Save Admin Code</button>
+            <div class="spacer"></div>
+            <div class="muted">Default is <span class="mono">ADMIN123</span> until you change it.</div>
+          </div>
+
+          <div class="card" style="grid-column:span 2">
+            <div class="row-between">
+              <h3>Audit Log</h3>
+              <button class="btn" id="auditCsv">Download CSV</button>
+            </div>
+            <div class="spacer"></div>
+            <div class="muted" style="font-size:12px;margin-bottom:8px">
+              📍 <strong>Storage Locations:</strong><br>
+              • Local: Browser localStorage (key: <span class="mono">pageant_scoring_v2</span>)<br>
+              ${state.cloud.enabled ? `• Cloud: Firestore at <span class="mono">events/${state.cloud.eventCode}/audit</span> (subcollection)` : '• Cloud: Not enabled'}
+            </div>
+            <table>
+              <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Details</th></tr></thead>
+              <tbody id="auditBody"></tbody>
+            </table>
+          </div>
         </div>`;
+      
+      // Login controls
       document.getElementById('meName').onchange=e=>{state.me.name=e.target.value; saveState();};
       document.getElementById('meRole').onchange=e=>{state.me.role=e.target.value; saveState(); render();};
       document.getElementById('goAdmin').onclick=()=>signInAdmin(state.me.name||'Admin');
       document.getElementById('goJudge').onclick=()=>signInJudge(state.me.name||'Judge');
       document.getElementById('goLogout').onclick=signOut;
-      document.getElementById('saveAdminCode').onclick=()=>{ const v=(document.getElementById('adminCodeNew').value||'').trim(); if(!v){alert('Enter a code'); return;} localStorage.setItem('pageant_admin_code_v1', v); alert('Admin code updated.'); };
-      const body=document.getElementById('auditBody'); body.innerHTML=state.audit.slice(-500).reverse().map(a=>`<tr><td>${a.ts}</td><td>${a.user}</td><td>${a.action}</td><td class='mono'>${typeof a.details==='string'?a.details:JSON.stringify(a.details)}</td></tr>`).join('')||`<tr><td colspan='4' class='muted'>No activity yet</td></tr>`;
-      document.getElementById('auditCsv').onclick=()=>{ const rows=[["ts","user","action","details"],...state.audit.map(a=>[a.ts,a.user,a.action,typeof a.details==='string'?a.details:JSON.stringify(a.details)])]; download('audit.csv', toCSV(rows)); };
+      
+      // Cloud controls
+      
+      // Generate secure event code
+      document.getElementById('generateCodeBtn').onclick=()=>{
+        const randomPart = Math.random().toString(36).slice(2,9) + Math.random().toString(36).slice(2,9);
+        const eventName = 'pageant2025';
+        const secureCode = `${eventName}-${randomPart}`;
+        document.getElementById('eventCode').value = secureCode;
+      };
+      
+      // Quick Connect - fetch config from Firestore
+      document.getElementById('quickConnectBtn').onclick=async ()=>{
+        const eventCode = document.getElementById('quickEventCode').value.trim();
+        if(!eventCode){ alert('Please enter an event code'); return; }
+        
+        try{
+          // Use a temporary Firebase instance to fetch the config
+          const tempConfig = state.cloud.firebaseConfig || {
+            apiKey: "AIzaSyCiglilw9_NLuSZUMGgciEnIPwlZ8vVklI",
+            authDomain: "womenfestival2025.firebaseapp.com",
+            projectId: "womenfestival2025",
+            storageBucket: "womenfestival2025.firebasestorage.app",
+            messagingSenderId: "614457754654",
+            appId: "1:614457754654:web:4c0ceeb3c29e38bc2bc1ea"
+          };
+          
+          await initFirebase(tempConfig);
+          
+          // Fetch config from Firestore
+          const configDoc = await fb.db.collection('event-configs').doc(eventCode).get();
+          
+          if(!configDoc.exists){
+            alert('Event code not found. Ask the admin to set up cloud sync first using Manual Setup.');
+            return;
+          }
+          
+          const fetchedConfig = configDoc.data().firebaseConfig;
+          
+          // Reinitialize with fetched config if different
+          if(JSON.stringify(fetchedConfig) !== JSON.stringify(tempConfig)){
+            fb.app = null;
+            await initFirebase(fetchedConfig);
+          }
+          
+          state.cloud.enabled = true;
+          state.cloud.eventCode = eventCode;
+          state.cloud.firebaseConfig = fetchedConfig;
+          saveState();
+          
+          await loadFromFirestore();
+          startFirestoreListener();
+          
+          logAudit('cloud_enabled', {eventCode, method: 'quick_connect'});
+          alert('Connected successfully! Data loaded from cloud.');
+          render();
+        }catch(err){
+          alert('Failed to connect: ' + err.message);
+          console.error(err);
+        }
+      };
+      
+      // Manual Setup - save config to Firestore
+      document.getElementById('enableCloudBtn').onclick=async ()=>{
+        const configText = document.getElementById('fbConfig').value.trim();
+        const eventCode = document.getElementById('eventCode').value.trim();
+        
+        if(!configText){ alert('Please paste Firebase config JSON'); return; }
+        if(!eventCode){ alert('Please enter an event code'); return; }
+        
+        try{
+          const config = JSON.parse(configText);
+          await initFirebase(config);
+          state.cloud.enabled = true;
+          state.cloud.eventCode = eventCode;
+          state.cloud.firebaseConfig = config;
+          saveState();
+          
+          // Save config to Firestore so others can use Quick Connect
+          await fb.db.collection('event-configs').doc(eventCode).set({
+            firebaseConfig: config,
+            createdAt: new Date().toISOString(),
+            createdBy: state.me.name || 'admin'
+          });
+          
+          await loadFromFirestore();
+          startFirestoreListener();
+          await syncToFirestore(true);
+          
+          logAudit('cloud_enabled', {eventCode, method: 'manual_setup'});
+          alert('Cloud sync enabled! Config saved. Share event code "' + eventCode + '" with others.');
+          render();
+        }catch(err){
+          alert('Failed to enable cloud: ' + err.message);
+          console.error(err);
+        }
+      };
+      
+      document.getElementById('syncNowBtn').onclick=async ()=>{
+        if(!state.cloud.enabled) return;
+        try{
+          await syncToFirestore(true);
+          alert('Synced successfully!');
+        }catch(err){
+          alert('Sync failed: ' + err.message);
+        }
+      };
+      
+      document.getElementById('disableCloudBtn').onclick=()=>{
+        if(!confirm('Disable cloud sync? Local data will remain but won\'t sync.')) return;
+        if(fb.unsub) { fb.unsub(); fb.unsub = null; }
+        state.cloud.enabled = false;
+        logAudit('cloud_disabled', null);
+        saveState();
+        render();
+      };
+      
+      document.getElementById('autoSyncChk').onchange=e=>{
+        state.cloud.autoSync = e.target.checked; 
+        saveState();
+      };
+      
+      // Admin code
+      document.getElementById('saveAdminCode').onclick=()=>{ 
+        const v=(document.getElementById('adminCodeNew').value||'').trim(); 
+        if(!v){alert('Enter a code'); return;} 
+        localStorage.setItem('pageant_admin_code_v1', v); 
+        alert('Admin code updated.'); 
+      };
+      
+      // Format audit details to be human-readable
+      function formatAuditDetails(action, details){
+        if(!details) return '—';
+        if(typeof details === 'string'){
+          // Check if it's already formatted (contains arrows or colons from new format)
+          if(details.includes('→') || (action === 'set_score' && details.includes(':'))){
+            return details;
+          }
+          // Check if it's a score key format: judgeId|contestantId|roundId (old format)
+          if(action === 'set_score' && details.includes('|')){
+            const [jId, cId, rId] = details.split('|');
+            const judge = state.judges.find(j=>j.id===jId);
+            const contestant = state.contestants.find(c=>c.id===cId);
+            const round = state.rounds.find(r=>r.id===rId);
+            return `${judge?.name||'?'} → ${contestant?.name||'?'} (${round?.name||'?'})`;
+          }
+          // Check if it's a submission key: judgeId|roundId
+          if((action === 'submit_scores' || action === 'unlock_scores') && details.includes('|')){
+            const [jId, rId] = details.split('|');
+            const judge = state.judges.find(j=>j.id===jId);
+            const round = state.rounds.find(r=>r.id===rId);
+            return `${judge?.name||'?'} - ${round?.name||'?'}`;
+          }
+          return details;
+        }
+        return JSON.stringify(details);
+      }
+      
+      // Audit log
+      const body=document.getElementById('auditBody'); 
+      body.innerHTML=state.audit.slice(-500).reverse().map(a=>`<tr><td>${a.ts}</td><td>${a.user}</td><td>${a.action}</td><td class='mono'>${formatAuditDetails(a.action, a.details)}</td></tr>`).join('')||`<tr><td colspan='4' class='muted'>No activity yet</td></tr>`;
+      document.getElementById('auditCsv').onclick=()=>{ 
+        const rows=[["ts","user","action","details"],...state.audit.map(a=>[a.ts,a.user,a.action,formatAuditDetails(a.action, a.details)])]; 
+        download('audit.csv', toCSV(rows)); 
+      };
     }
 
-    // --- Header buttons ---
+    // --- Header buttons functions ---
     function download(filename, text){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=filename; a.click(); }
-    document.getElementById('exportJsonBtn').onclick=()=>{ download('pageant_scoring_data.json', JSON.stringify(state,null,2)); };
-    document.getElementById('exportCsvBtn').onclick=()=>{
+    
+    function exportJson(){ 
+      download('pageant_scoring_data.json', JSON.stringify(state,null,2)); 
+    }
+    
+    function exportCsv(){
       const rows=[["Judge","Contestant #","Contestant","Category","Round","Sub","Score","Notes"]];
       state.judges.forEach(j=>{ state.contestants.forEach(c=>{ state.rounds.forEach(r=>{ const s=state.scores[scoreKey(j.id,c.id,r.id)]; if(s){ rows.push([j.name,c.number??'',c.name,c.category||'',r.name,r.sub||'',s.score,s.notes||'']); } }); }); });
       download('all_scores.csv', toCSV(rows));
-    };
-    document.getElementById('resetBtn').onclick=()=>{ if(confirm('Clear all local data?')){ localStorage.removeItem(LS_KEY); location.reload(); } };
-    document.getElementById('importJsonInput').onchange=(e)=>{ const f=e.target.files[0]; if(!f) return; const fr=new FileReader(); fr.onload=()=>{ try{ const obj=JSON.parse(fr.result); Object.assign(state,obj); saveState(); render(); }catch(err){ alert('Import failed: '+err.message); } }; fr.readAsText(f); };
+    }
+    
+    function resetApp(){ 
+      if(confirm('Clear all local data?')){ 
+        localStorage.removeItem(LS_KEY); 
+        location.reload(); 
+      } 
+    }
+    
+    function importJson(e){ 
+      const f=e.target.files[0]; 
+      if(!f) return; 
+      const fr=new FileReader(); 
+      fr.onload=()=>{ 
+        try{ 
+          const obj=JSON.parse(fr.result); 
+          Object.assign(state,obj); 
+          logAudit('import_json','Imported data from file'); 
+          saveState(); 
+          syncToFirestore(true); 
+          render(); 
+        }catch(err){ 
+          alert('Import failed: '+err.message); 
+        } 
+      }; 
+      fr.readAsText(f); 
+    }
 
     // --- Self-tests ---
     function runTests(){ const out=[]; function test(n,fn){ try{fn(); out.push('✅ '+n);}catch(e){out.push('❌ '+n+' -> '+e.message);} }
@@ -391,8 +927,87 @@
       document.getElementById('testOutput').innerHTML=out.map(x=>`<div class='${x.startsWith('✅')?'test-pass':'test-fail'}'>${x}</div>`).join(''); }
     document.getElementById('runTestsBtn').onclick=runTests;
 
+    // --- Admin unlock functionality ---
+    function populateUnlockSelects(){
+      const judgeSelect=document.getElementById('unlockJudge');
+      const roundSelect=document.getElementById('unlockRound');
+      const submissionsList=document.getElementById('submissionsList');
+      
+      // Exit if elements don't exist (Developer Tools not visible)
+      if(!judgeSelect || !roundSelect) return;
+      
+      judgeSelect.innerHTML='<option value="">Select Judge...</option>'+state.judges.map(j=>`<option value="${j.id}">${j.name}</option>`).join('');
+      roundSelect.innerHTML='<option value="">Select Round...</option>'+state.rounds.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+      
+      // Show current submissions
+      if(submissionsList){
+        const submissions=Object.keys(state.submissions).map(key=>{
+          const [judgeId, roundId]=key.split('|');
+          const judge=state.judges.find(j=>j.id===judgeId);
+          const round=state.rounds.find(r=>r.id===roundId);
+          return `${judge?.name||'Unknown'} - ${round?.name||'Unknown'}`;
+        });
+        if(submissions.length>0){
+          submissionsList.innerHTML='<strong>Current submissions:</strong> '+submissions.join(', ');
+        } else {
+          submissionsList.innerHTML='<em>No submissions yet</em>';
+        }
+      }
+    }
+    
+    function setupUnlockButton(){
+      const unlockBtn=document.getElementById('unlockBtn');
+      
+      // Exit if button doesn't exist (Developer Tools not visible)
+      if(!unlockBtn) return;
+      
+      unlockBtn.onclick=()=>{
+        const judgeId=document.getElementById('unlockJudge').value;
+        const roundId=document.getElementById('unlockRound').value;
+        if(!judgeId || !roundId){
+          alert('Please select both judge and round');
+          return;
+        }
+        const key=`${judgeId}|${roundId}`;
+        if(!state.submissions[key]){
+          alert('This judge has not submitted scores for this round');
+          return;
+        }
+        const judge=state.judges.find(j=>j.id===judgeId);
+        const round=state.rounds.find(r=>r.id===roundId);
+        if(confirm(`Are you sure you want to unlock scores for ${judge?.name} in ${round?.name}? They will be able to edit and resubmit.`)){
+          delete state.submissions[key];
+          logAudit('unlock_scores',key);
+          saveState();
+          syncToFirestore(true);
+          alert('Scores unlocked successfully. Judge can now edit and resubmit.');
+          populateUnlockSelects();
+        }
+      };
+    }
+
+    // --- Initialize and auto-reconnect to Firestore ---
+    async function initApp(){
+      render();
+      populateUnlockSelects();
+      setupUnlockButton();
+      
+      // If cloud was previously enabled, try to reconnect
+      if(state.cloud.enabled && state.cloud.firebaseConfig && state.cloud.eventCode){
+        try{
+          await initFirebase(state.cloud.firebaseConfig);
+          await loadFromFirestore();
+          startFirestoreListener();
+          console.log('Auto-reconnected to Firestore');
+        }catch(err){
+          console.warn('Failed to auto-reconnect to Firestore:', err);
+          // Don't disable cloud - user can manually reconnect from Settings
+        }
+      }
+    }
+
     // Kick off
-    render();
+    initApp();
   </script>
 </body>
 </html>

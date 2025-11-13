@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Event configurations - read-only for everyone, write for authenticated users only
+    match /event-configs/{eventCode} {
+      allow read: if true;  // Anyone can read to get Firebase config
+      allow write: if false; // Only allow through Firebase Console or Admin SDK
+    }
+    
+    // Event data - accessible with valid event code
+    match /events/{eventCode} {
+      // Helper function to check if user knows the event code
+      function knowsEventCode() {
+        // In a real app, you'd use Firebase Auth
+        // For now, we allow access if they know the event code (which is in the path)
+        return true;
+      }
+      
+      // Main event document
+      allow read: if knowsEventCode();
+      allow write: if knowsEventCode();
+      
+      // Audit logs subcollection - read-only except for creation
+      match /audit/{auditId} {
+        allow read: if knowsEventCode();
+        allow create: if knowsEventCode();
+        allow update, delete: if false; // Audit logs should never be modified
+      }
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

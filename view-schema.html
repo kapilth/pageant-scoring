@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Firestore Schema Viewer</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+    pre { background: #000; padding: 20px; border-radius: 8px; overflow: auto; }
+    .key { color: #0ff; }
+    .string { color: #0f0; }
+    .number { color: #ff0; }
+    .null { color: #f00; }
+    h1 { color: #0ff; }
+    button { padding: 10px 20px; margin: 10px 0; background: #0f0; border: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Pageant Scoring - Data Schema Viewer</h1>
+  <button onclick="viewLocalStorage()">View localStorage Data</button>
+  <button onclick="viewSchema()">View Schema Structure</button>
+  <button onclick="copySchema()">Copy Schema</button>
+  <pre id="output"></pre>
+
+  <script>
+    function syntaxHighlight(json) {
+      json = JSON.stringify(json, null, 2);
+      json = json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return json.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+        var cls = 'number';
+        if (/^"/.test(match)) {
+          if (/:$/.test(match)) {
+            cls = 'key';
+          } else {
+            cls = 'string';
+          }
+        } else if (/true|false/.test(match)) {
+          cls = 'boolean';
+        } else if (/null/.test(match)) {
+          cls = 'null';
+        }
+        return '<span class="' + cls + '">' + match + '</span>';
+      });
+    }
+
+    function viewLocalStorage() {
+      const data = localStorage.getItem('pageant_scoring_v2');
+      if (data) {
+        const parsed = JSON.parse(data);
+        document.getElementById('output').innerHTML = syntaxHighlight(parsed);
+      } else {
+        document.getElementById('output').textContent = 'No data found in localStorage';
+      }
+    }
+
+    function viewSchema() {
+      const schema = {
+        "events": {
+          "{eventCode}": {
+            "judges": [
+              {
+                "id": "string (auto-generated)",
+                "name": "string",
+                "code": "string (PIN)"
+              }
+            ],
+            "contestants": [
+              {
+                "id": "string (auto-generated)",
+                "name": "string",
+                "number": "number | null",
+                "category": "string"
+              }
+            ],
+            "rounds": [
+              {
+                "id": "string (auto-generated)",
+                "name": "string",
+                "type": "string",
+                "sub": "string (optional)",
+                "weight": "number (0-100)",
+                "maxPoints": "number (0-10)"
+              }
+            ],
+            "scores": {
+              "judgeId|contestantId|roundId": {
+                "score": "number (0-10)",
+                "notes": "string (optional)"
+              }
+            },
+            "submissions": {
+              "judgeId|roundId": "ISO timestamp string"
+            },
+            "settings": {
+              "roundAggregation": "'average' | 'sum'"
+            },
+            "audit": [
+              {
+                "ts": "ISO timestamp string",
+                "user": "string",
+                "action": "string",
+                "details": "any"
+              }
+            ],
+            "lastSync": "ISO timestamp string"
+          }
+        },
+        "Note": "Score keys use format: judgeId|contestantId|roundId"
+      };
+      document.getElementById('output').innerHTML = syntaxHighlight(schema);
+    }
+
+    function copySchema() {
+      const data = localStorage.getItem('pageant_scoring_v2');
+      if (data) {
+        const parsed = JSON.parse(data);
+        const formatted = JSON.stringify(parsed, null, 2);
+        navigator.clipboard.writeText(formatted).then(() => {
+          alert('Schema copied to clipboard!');
+        });
+      }
+    }
+
+    // Auto-load on page load
+    viewSchema();
+  </script>
+</body>
+</html>
