@@ -139,22 +139,31 @@
     function toCSV(rows){ return rows.map(r=>r.map(v=>csvEscape(v??'')).join(',')).join('\n'); }
     function htmlAttrEscape(v){ return String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+    // --- Simple Hash Function (SHA-256 via Web Crypto API) ---
+    async function hashPassword(password) {
+      const msgBuffer = new TextEncoder().encode(password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      return hashHex;
+    }
+
     // --- State ---
     const LS_KEY = 'pageant_scoring_v2';
     function loadState(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)); }catch{return null;} }
     function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
     const state = loadState() || {
-      judges: [],              // {id,name,code}
+      judges: [],              // {id,name,code,passwordHash} - code is now hashed
       contestants: [],         // {id,name,number,category}
-      rounds: [],              // {id,name,type,sub,weight,maxPoints}
+      rounds: [],              // {id,name,type,sub,weight,maxPoints,eligibleCategories}
       scores: {},              // key: `${judgeId}|${contestantId}|${roundId}` -> {score,notes}
       submissions: {},         // key: `${judgeId}|${roundId}` -> timestamp
-      settings: { roundAggregation:'average' },
+      settings: { roundAggregation:'average', eventPasswordHash:null }, // eventPasswordHash for second layer
       me: { uid:null, name:'', role:'', judgeId:null },
-      ui: { loginMode:null },
+      ui: { loginMode:null, editingRoundId:null, finalResults:{sortColumn:'total',sortDir:'desc',filter:''}, showEventCode:false },
       audit: [],
-      cloud: { enabled:false, eventCode:'', autoSync:true, firebaseConfig:null }
+      cloud: { enabled:false, eventCode:'', autoSync:true, firebaseConfig:null, passwordVerified:false }
     };
 
     // Firebase handles
@@ -370,13 +379,35 @@
     // --- Views ---
     function renderLogin(root){
       const mode=state.ui.loginMode;
+      
+      // Helper to mask event code
+      const maskedCode = state.cloud.eventCode ? 
+        (state.ui.showEventCode ? state.cloud.eventCode : state.cloud.eventCode.substring(0, 4) + '••••••••') : 
+        '';
+      
       root.innerHTML=`
         <div class="grid col-1">
           <!-- Event Code Card - Compact -->
-          ${state.cloud.enabled ? 
-            `<div class="card" style="background:rgba(16,185,129,0.08);border:1px solid var(--good);padding:12px;max-width:400px;margin:0 auto">
-              <div class="row" style="gap:8px;justify-content:center">
-                <span class="pill ok" style="font-size:13px">✓ Connected to: ${state.cloud.eventCode}</span>
+          ${state.cloud.enabled && state.cloud.passwordVerified ? 
+            `<div class="card" style="background:rgba(16,185,129,0.08);border:1px solid var(--good);padding:12px;max-width:500px;margin:0 auto">
+              <div class="row" style="gap:8px;justify-content:center;align-items:center">
+                <span class="pill ok" style="font-size:13px">✓ Connected: ${maskedCode}</span>
+                <button class="btn" onclick="state.ui.showEventCode = !state.ui.showEventCode; render();" style="padding:6px 12px;font-size:11px">
+                  ${state.ui.showEventCode ? '🙈 Hide' : '👁️ Show'}
+                </button>
+              </div>
+            </div>` :
+            state.cloud.enabled && !state.cloud.passwordVerified ?
+            `<div class="card" style="background:rgba(245,158,11,0.08);border:2px solid var(--warn);padding:16px;max-width:600px;margin:0 auto">
+              <div class="row-between" style="align-items:flex-start">
+                <div style="flex:1">
+                  <h4 style="color:var(--warn);margin:0 0 8px 0">🔐 Event Password Required</h4>
+                  <p class="muted" style="font-size:12px;margin:0 0 12px 0">Enter the event password to continue</p>
+                  <div class="row" style="gap:8px">
+                    <input id="eventPasswordInput" type="password" placeholder="Event password" style="flex:1;font-size:14px;padding:10px">
+                    <button class="btn primary" id="verifyEventPasswordBtn" style="padding:10px 16px;font-size:14px">Verify</button>
+                  </div>
+                </div>
               </div>
             </div>` :
             `<div class="card" style="background:rgba(34,211,238,0.08);border:2px solid var(--accent);padding:16px;max-width:600px;margin:0 auto">
@@ -401,12 +432,13 @@
             <h3>👨‍⚖️ Judge Login</h3>
             <div class="spacer"></div>
             <label>Judge name</label>
-            <input id="jName" placeholder="e.g., Judge Priya">
+            <input id="jName" placeholder="e.g., Judge Priya" ${!state.cloud.passwordVerified?'disabled':''}>
             <div class="spacer"></div>
             <label>Judge PIN (required)</label>
-            <input id="jPin" placeholder="e.g., 7429" type="number">
+            <input id="jPin" placeholder="e.g., 7429" type="password" ${!state.cloud.passwordVerified?'disabled':''}>
             <div class="spacer"></div>
-            <button class="btn primary" id="jLogin" style="width:100%">Sign In as Judge</button>
+            <button class="btn primary" id="jLogin" style="width:100%" ${!state.cloud.passwordVerified?'disabled':''}>Sign In as Judge</button>
+            ${!state.cloud.passwordVerified?'<div class="spacer"></div><div class="muted" style="font-size:11px">⚠️ Verify event password first</div>':''}
           </div>
           <div class="card" ${mode==='admin'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
             <h3>👑 Admin Login</h3>
@@ -419,7 +451,7 @@
             <div class="spacer"></div>
             <button class="btn primary" id="aLogin" style="width:100%">Sign In as Admin</button>
             <div class="spacer"></div>
-            <div class="muted" style="font-size:11px">🔒 Secured with Firebase Authentication. Contact event organizer for credentials.</div>
+            <div class="muted" style="font-size:11px">🔒 Secured with Firebase Authentication. Admins can login even without event password to manage settings.</div>
           </div>
         </div>`;
 
@@ -462,19 +494,65 @@
             state.cloud.eventCode = eventCode;
             state.cloud.firebaseConfig = firebaseConfig;
             state.cloud.autoSync = true;
-            saveState();
             
             await loadFromFirestore();
             startFirestoreListener();
             
-            logAudit('cloud_connected', {eventCode, method: 'login_page'});
-            alert('Connected successfully! You can now sign in.');
-            render();
+            // Check if event has a password
+            if(state.settings.eventPasswordHash) {
+              state.cloud.passwordVerified = false;
+              saveState();
+              logAudit('cloud_connected_pending_password', {eventCode, method: 'login_page'});
+              render();
+            } else {
+              // No password required - full access
+              state.cloud.passwordVerified = true;
+              saveState();
+              logAudit('cloud_connected', {eventCode, method: 'login_page'});
+              alert('Connected successfully! You can now sign in.');
+              render();
+            }
             
           } catch(err) {
             alert('Connection failed: ' + err.message);
             connectBtn.textContent = 'Connect to Event';
             connectBtn.disabled = false;
+          }
+        };
+      }
+      
+      // Event password verification handler
+      const verifyBtn = document.getElementById('verifyEventPasswordBtn');
+      if(verifyBtn) {
+        verifyBtn.onclick = async () => {
+          const password = document.getElementById('eventPasswordInput').value.trim();
+          if(!password) {
+            alert('Please enter the event password');
+            return;
+          }
+          
+          verifyBtn.textContent = 'Verifying...';
+          verifyBtn.disabled = true;
+          
+          try {
+            const passwordHash = await hashPassword(password);
+            
+            if(passwordHash === state.settings.eventPasswordHash) {
+              state.cloud.passwordVerified = true;
+              saveState();
+              logAudit('event_password_verified', {eventCode: state.cloud.eventCode});
+              alert('Password verified! You can now sign in.');
+              render();
+            } else {
+              alert('Incorrect event password. Please try again or contact the event organizer.');
+              verifyBtn.textContent = 'Verify';
+              verifyBtn.disabled = false;
+              document.getElementById('eventPasswordInput').value = '';
+            }
+          } catch(err) {
+            alert('Verification failed: ' + err.message);
+            verifyBtn.textContent = 'Verify';
+            verifyBtn.disabled = false;
           }
         };
       }
@@ -506,6 +584,9 @@
           state.me.role = 'admin';
           state.me.judgeId = null;
           
+          // Admin bypass: automatically verify event password since admin has full access
+          state.cloud.passwordVerified = true;
+          
           saveState();
           logAudit('admin_login_firebase', {email: user.email, uid: user.uid});
           
@@ -534,7 +615,12 @@
       };
 
       function findJudgeByPin(pin){ const p=(pin||'').trim(); return state.judges.find(j=>String(j.code||'').trim()===p)||null; }
-      document.getElementById('jLogin').onclick=()=>{
+      async function findJudgeByPinHash(pin){ 
+        const pinHash = await hashPassword(pin.trim());
+        return state.judges.find(j=>j.passwordHash === pinHash) || null;
+      }
+      
+      document.getElementById('jLogin').onclick=async ()=>{
         const name=(document.getElementById('jName').value||'').trim();
         const pin=(document.getElementById('jPin').value||'').trim();
         if(!name){ alert('Enter your name'); return; }
@@ -542,8 +628,26 @@
           alert('Please connect to an event first using the event code above.');
           return;
         }
-        const j=findJudgeByPin(pin); if(!j){ alert('Invalid/unknown Judge PIN. Contact the admin.'); return; }
-        state.me.judgeId=j.id; saveState(); signInJudge(name);
+        if(!state.cloud.passwordVerified) {
+          alert('Please verify the event password first.');
+          return;
+        }
+        
+        // Try hashed password first (new system), fallback to plaintext (old system)
+        let judge = await findJudgeByPinHash(pin);
+        if(!judge) {
+          judge = findJudgeByPin(pin);
+          if(judge) {
+            // Migrate old plaintext password to hash
+            judge.passwordHash = await hashPassword(judge.code);
+            delete judge.code; // Remove plaintext
+            saveState();
+            syncToFirestore();
+          }
+        }
+        
+        if(!judge){ alert('Invalid/unknown Judge PIN. Contact the admin.'); return; }
+        state.me.judgeId=judge.id; saveState(); signInJudge(name);
       };
     }
 
@@ -592,17 +696,71 @@
           <div class="card ${isAdmin?'':'muted'}">
             <div class="row-between"><h3>Judges</h3><span class="muted">${state.judges.length} total</span></div>
             <div class="spacer"></div>
-            <div class="row"><input id="jAddName" placeholder="Judge name" ${isAdmin?'':'disabled'}><input id="jAddPin" placeholder="PIN" ${isAdmin?'':'disabled'} style="max-width:140px"><button class="btn primary" id="jAdd" ${isAdmin?'':'disabled'}>Add</button></div>
+            <div class="row"><input id="jAddName" placeholder="Judge name" ${isAdmin?'':'disabled'}><input id="jAddPin" placeholder="PIN (4-6 digits)" type="password" ${isAdmin?'':'disabled'} style="max-width:160px"><button class="btn primary" id="jAdd" ${isAdmin?'':'disabled'}>Add</button></div>
             <div class="spacer"></div>
-            <table><thead><tr><th>Name</th><th>PIN</th><th></th></tr></thead><tbody id="jTable"></tbody></table>
+            <table>
+              <thead><tr><th>Name</th><th>PIN Status</th><th>Actions</th></tr></thead>
+              <tbody id="jTable"></tbody>
+            </table>
           </div>`;
         
         const jt=document.getElementById('jTable');
-        jt.innerHTML=state.judges.map(j=>`<tr><td>${j.name}</td><td>${j.code||''}</td><td><button class='btn' data-del='${j.id}'>Remove</button></td></tr>`).join('');
-        jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); logAudit('remove_judge',b.dataset.del); saveState(); syncToFirestore(); renderSetup(root); });
+        jt.innerHTML=state.judges.map(j=>`
+          <tr>
+            <td>${j.name}</td>
+            <td><span class="pill ${j.passwordHash?'ok':'warn'}">${j.passwordHash?'✓ Secured':'⚠ Plaintext'}</span></td>
+            <td>
+              <button class='btn' data-reset='${j.id}' style="font-size:12px;padding:8px 12px">Reset PIN</button>
+              <button class='btn bad' data-del='${j.id}' style="font-size:12px;padding:8px 12px">Remove</button>
+            </td>
+          </tr>
+        `).join('');
+        
+        jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ 
+          if(confirm(`Remove judge ${state.judges.find(j=>j.id===b.dataset.del)?.name}?`)) {
+            state.judges=state.judges.filter(x=>x.id!==b.dataset.del); 
+            logAudit('remove_judge',b.dataset.del); 
+            saveState(); 
+            syncToFirestore(); 
+            renderSetup(root); 
+          }
+        });
+        
+        jt.querySelectorAll('button[data-reset]').forEach(b=> b.onclick=async ()=>{ 
+          const judge = state.judges.find(j=>j.id===b.dataset.reset);
+          if(!judge) return;
+          
+          const newPin = prompt(`Enter new PIN for ${judge.name}:`);
+          if(!newPin || newPin.trim().length < 4) {
+            alert('PIN must be at least 4 characters');
+            return;
+          }
+          
+          judge.passwordHash = await hashPassword(newPin.trim());
+          delete judge.code; // Remove any old plaintext
+          logAudit('reset_judge_pin', {judgeId: judge.id, judgeName: judge.name});
+          saveState(); 
+          syncToFirestore(); 
+          alert(`PIN reset successfully for ${judge.name}`);
+          renderSetup(root);
+        });
         
         if(isAdmin){
-          document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); logAudit('add_judge',n); saveState(); syncToFirestore(); renderSetup(root); };
+          document.getElementById('jAdd').onclick=async ()=>{ 
+            const n=document.getElementById('jAddName').value.trim(); 
+            const p=(document.getElementById('jAddPin').value||'').trim(); 
+            if(!n) { alert('Enter judge name'); return; }
+            if(!p || p.length < 4) { alert('PIN must be at least 4 characters'); return; }
+            
+            const passwordHash = await hashPassword(p);
+            state.judges.push({id:uid(), name:n, passwordHash}); 
+            logAudit('add_judge',n); 
+            saveState(); 
+            syncToFirestore(); 
+            document.getElementById('jAddName').value = '';
+            document.getElementById('jAddPin').value = '';
+            renderSetup(root); 
+          };
         }
       }
       else if(setupSubTab === 'contestants'){
@@ -1180,6 +1338,47 @@
               <div class="muted" style="font-size:11px">
                 <strong>To create admin accounts:</strong><br>
                 1. Go to Firebase Console → Authentication<br>
+                2. Enable Email/Password provider<br>
+                3. Add new users manually<br>
+                4. Share credentials securely with admins
+              </div>
+            </div>
+          </div>
+          
+          <div class="card">
+            <h3>🔐 Event Password (Second Layer Security)</h3>
+            <div class="spacer"></div>
+            <div class="pill ${state.settings.eventPasswordHash?'ok':'warn'}">${state.settings.eventPasswordHash?'✓ Password Set':'○ No Password'}</div>
+            <div class="spacer"></div>
+            <p class="muted" style="font-size:12px">Set a password that users must enter AFTER connecting with the event code. This adds an extra layer of security.</p>
+            <div class="spacer"></div>
+            <label>Event Password</label>
+            <div class="row">
+              <input id="eventPassword" type="password" placeholder="Enter new event password" style="flex:1">
+              <button class="btn primary" id="setEventPasswordBtn">Set Password</button>
+            </div>
+            <div class="spacer"></div>
+            ${state.settings.eventPasswordHash?`
+              <button class="btn bad" id="removeEventPasswordBtn">Remove Password</button>
+              <div class="spacer"></div>
+            `:''}
+            <div class="muted" style="font-size:11px;background:rgba(16,185,129,0.1);padding:8px;border-radius:6px;border:1px solid rgba(16,185,129,0.3)">
+              ℹ️ Users will need both the event code AND this password to access the event.
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Scoring Aggregation</h3>
+            <div class="spacer"></div>
+            <label>Method</label>
+            <select id="aggMethod">
+              <option value="average" ${state.settings.roundAggregation==='average'?'selected':''}>Average</option>
+              <option value="sum" ${state.settings.roundAggregation==='sum'?'selected':''}>Sum</option>
+            </select>
+            <div class="spacer"></div>
+            <button class="btn" id="applyAgg">Apply</button>
+          </div>
+                1. Go to Firebase Console → Authentication<br>
                 2. Add users with email/password<br>
                 3. Share credentials securely with admins
               </div>
@@ -1338,6 +1537,50 @@
         saveState();
       };
       
+      // Event Password Management
+      const setPasswordBtn = document.getElementById('setEventPasswordBtn');
+      if(setPasswordBtn) {
+        setPasswordBtn.onclick = async () => {
+          const password = document.getElementById('eventPassword').value.trim();
+          if(!password || password.length < 6) {
+            alert('Event password must be at least 6 characters');
+            return;
+          }
+          
+          if(confirm('Set event password? Users will need this password to access the event after connecting with the event code.')) {
+            const passwordHash = await hashPassword(password);
+            state.settings.eventPasswordHash = passwordHash;
+            
+            // If already connected, mark as verified (admin setting it)
+            if(state.cloud.enabled) {
+              state.cloud.passwordVerified = true;
+            }
+            
+            saveState();
+            syncToFirestore();
+            logAudit('event_password_set', {});
+            alert('Event password set successfully! Share this password securely with authorized users.');
+            document.getElementById('eventPassword').value = '';
+            render();
+          }
+        };
+      }
+      
+      const removePasswordBtn = document.getElementById('removeEventPasswordBtn');
+      if(removePasswordBtn) {
+        removePasswordBtn.onclick = () => {
+          if(confirm('Remove event password? This will remove the second layer of security.')) {
+            state.settings.eventPasswordHash = null;
+            state.cloud.passwordVerified = true; // Allow access since no password required
+            saveState();
+            syncToFirestore();
+            logAudit('event_password_removed', {});
+            alert('Event password removed.');
+            render();
+          }
+        };
+      }
+      
       // Format audit details to be human-readable
       function formatAuditDetails(action, details){
         if(!details) return '—';
@@ -1373,6 +1616,20 @@
         const rows=[["ts","user","action","details"],...state.audit.map(a=>[a.ts,a.user,a.action,formatAuditDetails(a.action, a.details)])]; 
         download('audit.csv', toCSV(rows)); 
       };
+      
+      // Aggregation settings
+      const applyAggBtn = document.getElementById('applyAgg');
+      if(applyAggBtn) {
+        applyAggBtn.onclick = () => {
+          const method = document.getElementById('aggMethod').value;
+          state.settings.roundAggregation = method;
+          saveState();
+          syncToFirestore();
+          logAudit('aggregation_changed', {method});
+          alert(`Aggregation method set to: ${method}`);
+          render();
+        };
+      }
     }
 
     // --- Header buttons functions ---
