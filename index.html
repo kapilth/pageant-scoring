@@ -3,15 +3,39 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Pageant Scoring App</title>
+  <meta name="description" content="Professional pageant scoring system with cloud sync and secure authentication for judges and administrators" />
+  <meta name="theme-color" content="#7c3aed" />
+  <title>Pageant Scoring</title>
   <style>
-    :root{--bg:#0a0e1a;--card:#f8fafc;--card-dark:#1e293b;--muted:#475569;--text:#1e293b;--text-light:#f8fafc;--accent:#22d3ee;--accent-hover:#06b6d4;--good:#10b981;--warn:#f59e0b;--bad:#ef4444;--border:#e2e8f0;--shadow:rgba(0,0,0,0.1)}
+    /* Royal Elegance Theme - Gold & Purple */
+    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+    
+    :root{
+      --bg:#1a0f2e;
+      --card:#ffffff;
+      --card-dark:#2d1b4e;
+      --muted:#9333ea;
+      --text:#1a0f2e;
+      --text-light:#ffffff;
+      --accent:#d4af37;
+      --accent-hover:#b8941f;
+      --accent-dark:#8b6914;
+      --purple:#7c3aed;
+      --purple-dark:#6d28d9;
+      --purple-light:#a78bfa;
+      --good:#10b981;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --border:#e9d5ff;
+      --shadow:rgba(212,175,55,0.15);
+      --glow:rgba(212,175,55,0.3);
+    }
     *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Helvetica Neue',sans-serif;
+      font-family:'Playfair Display','Georgia',serif;
       color:var(--text);
-      background:var(--bg);
+      background:linear-gradient(135deg, #1a0f2e 0%, #2d1b4e 50%, #4c1d95 100%);
       position:relative;
       min-height:100vh;
     }
@@ -26,76 +50,364 @@
       background-size:cover;
       background-position:center top;
       background-attachment:fixed;
-      opacity:0.75;
+      opacity:0.45;
       z-index:-1;
     }
-    header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,0.98);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);box-shadow:0 1px 3px var(--shadow)}
-    .wrap{max-width:1200px;margin:0 auto;padding:20px}
-    h1{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.5px;color:var(--text)}
-    .subtitle{opacity:.7;font-size:13px;margin-top:4px;font-weight:500}
-    nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px}
-    .tab{padding:12px 20px;border:none;border-radius:12px;background:transparent;color:var(--muted);cursor:pointer;font-weight:600;font-size:14px;transition:all 0.2s;position:relative}
-    .tab:hover{background:rgba(34,211,238,0.08);color:var(--text)}
-    .tab.active{color:var(--accent);background:rgba(34,211,238,0.12)}
-    .tab.active::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:3px;background:var(--accent);border-radius:3px 3px 0 0}
-    .grid{display:grid;gap:16px}
+    body::after{
+      content:'';
+      position:fixed;
+      top:-50%;
+      right:-50%;
+      width:100%;
+      height:100%;
+      background:radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 70%);
+      z-index:-1;
+      animation:sparkle 8s ease-in-out infinite;
+    }
+    @keyframes sparkle{
+      0%, 100%{opacity:0.3;transform:scale(1)}
+      50%{opacity:0.6;transform:scale(1.1)}
+    }
+    header{
+      position:sticky;
+      top:0;
+      z-index:5;
+      background:transparent;
+      backdrop-filter:blur(20px);
+    }
+    .wrap{max-width:1200px;margin:0 auto;padding:8px 20px}
+    @media (max-width:768px){
+      .wrap{padding:6px 12px}
+    }
+    h1{
+      margin:0;
+      font-size:18px;
+      font-weight:700;
+      letter-spacing:1px;
+      color:var(--accent);
+      text-shadow:0 2px 10px rgba(212,175,55,0.5);
+      font-family:'Playfair Display',serif;
+    }
+    @media (max-width:768px){
+      h1{font-size:16px;letter-spacing:0.5px}
+    }
+    .subtitle{
+      opacity:.9;
+      font-size:10px;
+      margin-top:2px;
+      font-weight:400;
+      color:rgba(255,255,255,0.85);
+      font-family:'Inter',sans-serif;
+      letter-spacing:0.5px;
+    }
+    @media (max-width:768px){
+      .subtitle{font-size:8px;letter-spacing:0.3px}
+    }
+    nav{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+    @media (max-width:768px){
+      nav{gap:6px;margin-top:8px}
+    }
+    .tab{
+      padding:6px 16px;
+      border:none;
+      border-radius:50px;
+      background:rgba(255,255,255,0.9);
+      color:#1a0f2e;
+      cursor:pointer;
+      font-weight:600;
+      font-size:12px;
+      font-family:'Inter',sans-serif;
+      transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position:relative;
+      border:2px solid rgba(212,175,55,0.3);
+    }
+    @media (max-width:768px){
+      .tab{padding:5px 12px;font-size:10px}
+    }
+    .tab:hover{
+      background:rgba(255,255,255,1);
+      color:#1a0f2e;
+      border-color:rgba(212,175,55,0.6);
+      transform:translateY(-2px);
+      box-shadow:0 4px 12px rgba(212,175,55,0.3);
+    }
+    .tab.active{
+      color:#1a0f2e;
+      background:linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+      border-color:var(--accent);
+      box-shadow:0 4px 20px rgba(212,175,55,0.5), 0 0 30px rgba(212,175,55,0.3);
+      font-weight:700;
+    }
+    .tab.active::before{
+      content:'✨';
+      margin-right:6px;
+    }
+    .grid{display:grid;gap:20px}
     .col-1{grid-template-columns:1fr}
     .col-2{grid-template-columns:repeat(2,1fr)}
     .col-3{grid-template-columns:repeat(3,1fr)}
     @media (max-width:900px){.col-2,.col-3{grid-template-columns:1fr}}
-    .card{background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:16px;padding:24px;backdrop-filter:blur(12px);box-shadow:0 4px 6px -1px var(--shadow),0 2px 4px -2px var(--shadow);transition:all 0.2s}
-    .card:hover{box-shadow:0 10px 15px -3px var(--shadow),0 4px 6px -4px var(--shadow)}
+    @media (max-width:768px){
+      .grid{gap:12px}
+    }
+    .card{
+      background:rgba(255,255,255,1);
+      border:2px solid rgba(212,175,55,0.4);
+      border-radius:20px;
+      padding:28px;
+      backdrop-filter:blur(20px);
+      box-shadow:0 8px 24px rgba(212,175,55,0.2), 0 4px 8px rgba(109,40,217,0.15);
+      transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position:relative;
+      color:#1a0f2e;
+    }
+    @media (max-width:768px){
+      .card{padding:16px;border-radius:12px}
+    }
+    .card::before{
+      content:'';
+      position:absolute;
+      top:0;
+      left:0;
+      right:0;
+      height:4px;
+      background:linear-gradient(90deg, var(--purple) 0%, var(--accent) 50%, var(--purple) 100%);
+      border-radius:20px 20px 0 0;
+    }
+    .card:hover{
+      transform:translateY(-4px);
+      box-shadow:0 12px 32px rgba(212,175,55,0.25), 0 8px 16px rgba(109,40,217,0.15);
+      border-color:rgba(212,175,55,0.5);
+    }
     .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .row-between{display:flex;gap:12px;align-items:center;justify-content:space-between}
-    label{font-size:13px;font-weight:600;color:var(--text);display:block;margin-bottom:8px}
-    input, select, textarea, button{font-size:15px;font-family:inherit}
-    input, select, textarea{width:100%;padding:12px 16px;border-radius:12px;border:2px solid var(--border);background:#fff;color:var(--text);transition:all 0.2s;font-weight:500}
-    input:hover, select:hover, textarea:hover{border-color:#cbd5e1}
-    input:focus, select:focus, textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,0.1)}
-    input::placeholder{color:var(--muted);font-weight:400}
+    .row-between{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    @media (max-width:768px){
+      .row{gap:8px}
+      .row-between{gap:8px}
+    }
+    label{
+      font-size:13px;
+      font-weight:700;
+      color:var(--purple-dark);
+      display:block;
+      margin-bottom:8px;
+      font-family:'Inter',sans-serif;
+      letter-spacing:0.3px;
+      text-transform:uppercase;
+    }
+    @media (max-width:768px){
+      label{font-size:11px;margin-bottom:6px}
+    }
+    input, select, textarea, button{font-size:15px;font-family:'Inter',sans-serif}
+    @media (max-width:768px){
+      input, select, textarea, button{font-size:14px}
+    }
+    input, select, textarea{
+      width:100%;
+      padding:14px 18px;
+      border-radius:12px;
+      border:2px solid rgba(212,175,55,0.2);
+      background:#ffffff;
+      color:#1a0f2e;
+      transition:all 0.3s;
+      font-weight:500;
+    }
+    @media (max-width:768px){
+      input, select, textarea{padding:10px 14px}
+    }
+    input:hover, select:hover, textarea:hover{border-color:rgba(212,175,55,0.4)}
+    input:focus, select:focus, textarea:focus{
+      outline:none;
+      border-color:var(--accent);
+      box-shadow:0 0 0 4px rgba(212,175,55,0.15), 0 4px 12px rgba(212,175,55,0.2);
+      background:#fffef8;
+    }
+    /* Ensure focus is visible for accessibility */
+    button:focus-visible, .tab:focus-visible, .btn:focus-visible{
+      outline:3px solid var(--accent);
+      outline-offset:2px;
+    }
+    input:focus-visible, textarea:focus-visible, select:focus-visible{
+      outline:3px solid var(--purple);
+      outline-offset:2px;
+    }
+    a:focus-visible{
+      outline:3px solid var(--accent);
+      outline-offset:2px;
+      border-radius:2px;
+    }
+    input::placeholder{color:#9333ea;font-weight:400;opacity:0.6}
     textarea{min-height:80px;resize:vertical}
-    select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");background-position:right 12px center;background-repeat:no-repeat;background-size:20px;padding-right:40px}
-    table{width:100%;border-collapse:separate;border-spacing:0}
-    th, td{padding:14px;border-bottom:1px solid var(--border);text-align:left}
-    th{font-size:13px;font-weight:700;color:var(--muted);background:rgba(248,250,252,0.8)}
-    tr:hover td{background:rgba(34,211,238,0.04)}
-    .btn{padding:12px 24px;border-radius:12px;border:2px solid var(--border);background:#fff;color:var(--text);cursor:pointer;font-weight:600;transition:all 0.2s;box-shadow:0 1px 2px var(--shadow)}
-    .btn:hover{background:#f8fafc;border-color:#cbd5e1;transform:translateY(-2px);box-shadow:0 4px 6px -1px var(--shadow)}
-    .btn:active{transform:translateY(0);box-shadow:0 1px 2px var(--shadow)}
-    .btn.primary{border-color:var(--accent);background:var(--accent);color:#fff;box-shadow:0 4px 6px -1px rgba(34,211,238,0.3)}
-    .btn.primary:hover{background:var(--accent-hover);border-color:var(--accent-hover);box-shadow:0 10px 15px -3px rgba(34,211,238,0.4)}
-    .btn.bad{border-color:var(--bad);color:var(--bad)}
-    .btn.bad:hover{background:rgba(239,68,68,0.05)}
-    .pill{padding:6px 12px;border-radius:999px;border:2px solid var(--border);font-size:12px;font-weight:600;background:#fff}
-    .pill.ok{border-color:var(--good);color:var(--good);background:rgba(16,185,129,0.08)}
-    .pill.warn{border-color:var(--warn);color:var(--warn);background:rgba(245,158,11,0.08)}
-    .pill.bad{border-color:var(--bad);color:var(--bad);background:rgba(239,68,68,0.08)}
-    .muted{opacity:.7}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:13px;background:rgba(15,23,42,0.05);padding:2px 6px;border-radius:6px}
+    select{
+      cursor:pointer;
+      appearance:none;
+      background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%23d4af37' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+      background-position:right 12px center;
+      background-repeat:no-repeat;
+      background-size:20px;
+      padding-right:40px;
+    }
+    table{width:100%;border-collapse:separate;border-spacing:0;border-radius:12px;overflow:hidden}
+    @media (max-width:768px){
+      table{font-size:13px}
+    }
+    th, td{padding:16px;border-bottom:1px solid rgba(212,175,55,0.15);text-align:left}
+    @media (max-width:768px){
+      th, td{padding:10px 8px}
+    }
+    td{
+      color:#1a0f2e;
+    }
+    th{
+      font-size:12px;
+      font-weight:700;
+      color:var(--purple-dark);
+      background:linear-gradient(135deg, rgba(212,175,55,0.08) 0%, rgba(124,58,237,0.08) 100%);
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+      font-family:'Inter',sans-serif;
+    }
+    @media (max-width:768px){
+      th{font-size:10px;letter-spacing:0.3px}
+    }
+    tr:hover td{background:rgba(212,175,55,0.05)}
+    tr:last-child td{border-bottom:none}
+    .btn{
+      padding:12px 28px;
+      border-radius:50px;
+      border:2px solid rgba(212,175,55,0.3);
+      background:#ffffff;
+      color:#1a0f2e;
+      cursor:pointer;
+      font-weight:600;
+      transition:all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow:0 2px 8px rgba(212,175,55,0.15);
+      font-family:'Inter',sans-serif;
+    }
+    @media (max-width:768px){
+      .btn{padding:10px 20px;font-size:13px}
+    }
+    .btn:hover{
+      background:rgba(212,175,55,0.1);
+      border-color:var(--accent);
+      transform:translateY(-2px);
+      box-shadow:0 6px 16px rgba(212,175,55,0.25);
+    }
+    .btn:active{transform:translateY(0);box-shadow:0 2px 8px rgba(212,175,55,0.15)}
+    .btn.primary{
+      border-color:var(--accent);
+      background:linear-gradient(135deg, var(--accent) 0%, #f4d03f 100%);
+      color:#1a0f2e;
+      box-shadow:0 4px 16px rgba(212,175,55,0.4);
+      font-weight:700;
+    }
+    .btn.primary:hover{
+      background:linear-gradient(135deg, #f4d03f 0%, var(--accent) 100%);
+      border-color:var(--accent-dark);
+      box-shadow:0 8px 24px rgba(212,175,55,0.5);
+    }
+    .btn.bad{border-color:var(--bad);color:var(--bad);background:#ffffff}
+    .btn.bad:hover{background:rgba(239,68,68,0.08);border-color:#dc2626}
+    .pill{
+      padding:6px 14px;
+      border-radius:999px;
+      border:2px solid rgba(212,175,55,0.3);
+      font-size:11px;
+      font-weight:700;
+      background:rgba(255,255,255,0.9);
+      font-family:'Inter',sans-serif;
+      letter-spacing:0.3px;
+      text-transform:uppercase;
+    }
+    .pill.ok{border-color:var(--good);color:var(--good);background:rgba(16,185,129,0.1)}
+    .pill.warn{border-color:var(--warn);color:var(--warn);background:rgba(245,158,11,0.1)}
+    .pill.bad{border-color:var(--bad);color:var(--bad);background:rgba(239,68,68,0.1)}
+    .muted{opacity:.75;color:var(--purple-dark)}
+    .mono{
+      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
+      font-size:12px;
+      background:rgba(212,175,55,0.08);
+      padding:4px 8px;
+      border-radius:6px;
+      border:1px solid rgba(212,175,55,0.2);
+      color:var(--purple-dark);
+    }
     .sticky{position:sticky;top:78px;z-index:4}
-    .spacer{height:12px}
+    .spacer{height:16px}
     .hide{display:none}
-    .test-pass{color:#10b981;font-weight:600}
-    .test-fail{color:#ef4444;font-weight:600}
-    h2,h3,h4{color:var(--text);font-weight:700;margin-top:0}
-    h2{font-size:20px;margin-bottom:8px}
-    h3{font-size:18px;margin-bottom:6px}
-    h4{font-size:16px;margin-bottom:6px}
+    .test-pass{color:#10b981;font-weight:700}
+    .test-fail{color:#ef4444;font-weight:700}
+    h2,h3,h4{
+      color:var(--purple-dark);
+      font-weight:700;
+      margin-top:0;
+      font-family:'Playfair Display',serif;
+    }
+    h2{font-size:22px;margin-bottom:10px;color:var(--accent-dark)}
+    h3{font-size:20px;margin-bottom:8px;color:var(--purple)}
+    h4{font-size:18px;margin-bottom:8px;color:var(--purple-dark)}
+    @media (max-width:768px){
+      h2{font-size:18px;margin-bottom:8px}
+      h3{font-size:16px;margin-bottom:6px}
+      h4{font-size:15px;margin-bottom:6px}
+    }
+    
+    /* Royal decorative elements */
+    .card h3::before{
+      content:'◆ ';
+      color:var(--accent);
+      margin-right:6px;
+      font-size:0.8em;
+    }
+    
+    /* Skip to main content link for screen readers */
+    .skip-link{
+      position:absolute;
+      top:-40px;
+      left:0;
+      background:var(--accent);
+      color:#1a0f2e;
+      padding:8px 16px;
+      text-decoration:none;
+      font-weight:700;
+      z-index:100;
+      border-radius:0 0 8px 0;
+    }
+    .skip-link:focus{
+      top:0;
+    }
+    
+    /* Improve contrast for better readability */
+    .muted{opacity:.85;color:var(--purple-dark);font-weight:500}
+    
+    /* Screen reader only text */
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      white-space:nowrap;
+      border-width:0;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <div class="wrap row-between">
-      <div>
-        <h1>Pageant Scoring</h1>
-        <div class="subtitle">Firestore Cloud Sync • Judge Login • Audit Log • Installable (PWA)</div>
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <header role="banner">
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:16px;flex:1;min-width:200px">
+        <div>
+          <h1>Pageant Scoring</h1>
+          <div class="subtitle">🏆 Professional Judging System</div>
+        </div>
+        <nav id="tabs" style="margin-top:0"></nav>
       </div>
       <div class="row" id="adminControls">
         <!-- Admin-only controls - hidden for judges -->
       </div>
-    </div>
-    <div class="wrap">
-      <nav id="tabs"></nav>
     </div>
   </header>
 
@@ -392,7 +704,7 @@
             `<div class="card" style="background:rgba(16,185,129,0.08);border:1px solid var(--good);padding:12px;max-width:500px;margin:0 auto">
               <div class="row" style="gap:8px;justify-content:center;align-items:center">
                 <span class="pill ok" style="font-size:13px">✓ Connected: ${maskedCode}</span>
-                <button class="btn" onclick="state.ui.showEventCode = !state.ui.showEventCode; render();" style="padding:6px 12px;font-size:11px">
+                <button class="btn" onclick="state.ui.showEventCode = !state.ui.showEventCode; render();" style="padding:6px 12px;font-size:11px" aria-label="${state.ui.showEventCode ? 'Hide event code' : 'Show event code'}">
                   ${state.ui.showEventCode ? '🙈 Hide' : '👁️ Show'}
                 </button>
               </div>
@@ -404,8 +716,8 @@
                   <h4 style="color:var(--warn);margin:0 0 8px 0">🔐 Event Password Required</h4>
                   <p class="muted" style="font-size:12px;margin:0 0 12px 0">Enter the event password to continue</p>
                   <div class="row" style="gap:8px">
-                    <input id="eventPasswordInput" type="password" placeholder="Event password" style="flex:1;font-size:14px;padding:10px">
-                    <button class="btn primary" id="verifyEventPasswordBtn" style="padding:10px 16px;font-size:14px">Verify</button>
+                    <input id="eventPasswordInput" type="password" placeholder="Event password" style="flex:1;font-size:14px;padding:10px" aria-required="true" aria-label="Enter event password">
+                    <button class="btn primary" id="verifyEventPasswordBtn" style="padding:10px 16px;font-size:14px" aria-label="Verify event password">Verify</button>
                   </div>
                 </div>
               </div>
@@ -416,8 +728,8 @@
                   <h4 style="color:var(--accent);margin:0 0 8px 0">📡 Event Connection</h4>
                   <p class="muted" style="font-size:12px;margin:0 0 12px 0">Enter event code to connect</p>
                   <div class="row" style="gap:8px">
-                    <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="flex:1;font-size:14px;padding:10px">
-                    <button class="btn primary" id="connectEventBtn" style="padding:10px 16px;font-size:14px">Connect</button>
+                    <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="flex:1;font-size:14px;padding:10px" aria-required="true" aria-label="Enter event code">
+                    <button class="btn primary" id="connectEventBtn" style="padding:10px 16px;font-size:14px" aria-label="Connect to event">Connect</button>
                   </div>
                 </div>
               </div>
@@ -431,27 +743,27 @@
           <div class="card" ${mode==='judge'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
             <h3>👨‍⚖️ Judge Login</h3>
             <div class="spacer"></div>
-            <label>Judge name</label>
-            <input id="jName" placeholder="e.g., Judge Priya" ${!state.cloud.passwordVerified?'disabled':''}>
+            <label for="jName">Judge name</label>
+            <input id="jName" placeholder="e.g., Judge Priya" ${!state.cloud.passwordVerified?'disabled':''} aria-required="true" aria-label="Enter your name">
             <div class="spacer"></div>
-            <label>Judge PIN (required)</label>
-            <input id="jPin" placeholder="e.g., 7429" type="password" ${!state.cloud.passwordVerified?'disabled':''}>
+            <label for="jPin">Judge PIN (required)</label>
+            <input id="jPin" placeholder="e.g., 7429" type="password" ${!state.cloud.passwordVerified?'disabled':''} aria-required="true" aria-label="Enter your 4-digit PIN">
             <div class="spacer"></div>
-            <button class="btn primary" id="jLogin" style="width:100%" ${!state.cloud.passwordVerified?'disabled':''}>Sign In as Judge</button>
-            ${!state.cloud.passwordVerified?'<div class="spacer"></div><div class="muted" style="font-size:11px">⚠️ Verify event password first</div>':''}
+            <button class="btn primary" id="jLogin" style="width:100%" ${!state.cloud.passwordVerified?'disabled':''} aria-label="Sign in as judge">Sign In as Judge</button>
+            ${!state.cloud.passwordVerified?'<div class="spacer"></div><div class="muted" style="font-size:11px" role="alert">⚠️ Verify event password first</div>':''}
           </div>
           <div class="card" ${mode==='admin'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
             <h3>👑 Admin Login</h3>
             <div class="spacer"></div>
-            <label>Admin Email</label>
-            <input id="aEmail" type="email" placeholder="admin@example.com">
+            <label for="aEmail">Admin Email</label>
+            <input id="aEmail" type="email" placeholder="admin@example.com" aria-required="true" aria-label="Enter admin email address">
             <div class="spacer"></div>
-            <label>Password</label>
-            <input id="aPassword" type="password" placeholder="Enter your password">
+            <label for="aPassword">Password</label>
+            <input id="aPassword" type="password" placeholder="Enter your password" aria-required="true" aria-label="Enter admin password">
             <div class="spacer"></div>
-            <button class="btn primary" id="aLogin" style="width:100%">Sign In as Admin</button>
+            <button class="btn primary" id="aLogin" style="width:100%" aria-label="Sign in as administrator">Sign In as Admin</button>
             <div class="spacer"></div>
-            <div class="muted" style="font-size:11px">🔒 Secured with Firebase Authentication. Admins can login even without event password to manage settings.</div>
+            <div class="muted" style="font-size:11px" role="status">🔒 Secured with Firebase Authentication. Admins can login even without event password to manage settings.</div>
           </div>
         </div>`;
 
@@ -1263,19 +1575,19 @@
           <div class="card">
             <h3>Login</h3>
             <div class="spacer"></div>
-            <label>Your name</label>
-            <input id="meName" value="${state.me.name||''}" placeholder="e.g., Judge Priya">
+            <label for="meName">Your name</label>
+            <input id="meName" value="${state.me.name||''}" placeholder="e.g., Judge Priya" aria-label="Your name">
             <div class="spacer"></div>
-            <label>Role</label>
-            <select id="meRole">
+            <label for="meRole">Role</label>
+            <select id="meRole" aria-label="Select your role">
               <option value="admin" ${state.me.role==='admin'?'selected':''}>Admin</option>
               <option value="judge" ${state.me.role==='judge'?'selected':''}>Judge</option>
             </select>
             <div class="spacer"></div>
             <div class="row">
-              <button class="btn" id="goAdmin">Go Admin</button>
-              <button class="btn" id="goJudge">Go Judge</button>
-              <button class="btn" id="goLogout">Sign Out</button>
+              <button class="btn" id="goAdmin" aria-label="Switch to admin mode">Go Admin</button>
+              <button class="btn" id="goJudge" aria-label="Switch to judge mode">Go Judge</button>
+              <button class="btn" id="goLogout" aria-label="Sign out">Sign Out</button>
             </div>
           </div>
 
@@ -1290,8 +1602,8 @@
               <h4 style="margin:0 0 8px 0;font-size:14px">⚡ Quick Connect (Recommended)</h4>
               <p class="muted" style="font-size:12px;margin:0 0 8px 0">Just enter the event code shared by the admin</p>
               <div class="row">
-                <input id="quickEventCode" placeholder="e.g., pageant2025" style="flex:1">
-                <button class="btn primary" id="quickConnectBtn">Connect</button>
+                <input id="quickEventCode" placeholder="e.g., pageant2025" style="flex:1" aria-label="Enter event code to connect" aria-required="true">
+                <button class="btn primary" id="quickConnectBtn" aria-label="Connect to event">Connect</button>
               </div>
             </div>
             
@@ -1299,13 +1611,13 @@
             <details>
               <summary style="cursor:pointer;font-weight:500;margin-bottom:8px">🔧 Manual Setup (Admin Only - First Time)</summary>
               <div class="spacer"></div>
-              <label>Firebase Config JSON</label>
+              <label for="fbConfig">Firebase Config JSON</label>
               <textarea id="fbConfig" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}'>${state.cloud.firebaseConfig?JSON.stringify(state.cloud.firebaseConfig,null,2):''}</textarea>
               <div class="spacer"></div>
-              <label>Event Code (create a unique code for this event)</label>
+              <label for="eventCode">Event Code (create a unique code for this event)</label>
               <div class="row">
-                <input id="eventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-gWf7kX2" style="flex:1">
-                <button class="btn" id="generateCodeBtn" title="Generate random secure code">🎲 Generate</button>
+                <input id="eventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-gWf7kX2" style="flex:1" aria-label="Event code">
+                <button class="btn" id="generateCodeBtn" title="Generate random secure code" aria-label="Generate random event code">🎲 Generate</button>
               </div>
               <div class="spacer"></div>
               <div class="muted" style="font-size:11px;padding:8px;background:rgba(251,191,36,0.1);border-radius:6px;border:1px solid rgba(251,191,36,0.3)">
@@ -1319,11 +1631,11 @@
             
             <div class="spacer"></div>
             <div class="row" style="margin-top:12px">
-              <button class="btn" id="syncNowBtn" ${state.cloud.enabled?'':'disabled'}>Sync Now</button>
-              <button class="btn bad" id="disableCloudBtn" ${state.cloud.enabled?'':'disabled'}>Disable</button>
+              <button class="btn" id="syncNowBtn" ${state.cloud.enabled?'':'disabled'} aria-label="Sync data now">Sync Now</button>
+              <button class="btn bad" id="disableCloudBtn" ${state.cloud.enabled?'':'disabled'} aria-label="Disable cloud sync">Disable</button>
             </div>
             <div class="spacer"></div>
-            <label class="row"><input type="checkbox" id="autoSyncChk" ${state.cloud.autoSync?'checked':''}/> Auto-sync</label>
+            <label class="row"><input type="checkbox" id="autoSyncChk" ${state.cloud.autoSync?'checked':''} aria-label="Enable automatic syncing"/> Auto-sync</label>
             <div class="spacer"></div>
             <div class="muted" style="font-size:12px">Cloud stores data in Firestore under <span class="mono">events/{eventCode}</span>. All devices with same event code share data in real-time.</div>
           </div>
@@ -1352,11 +1664,12 @@
             <div class="spacer"></div>
             <p class="muted" style="font-size:12px">Set a password that users must enter AFTER connecting with the event code. This adds an extra layer of security.</p>
             <div class="spacer"></div>
-            <label>Event Password</label>
+            <label for="eventPassword">Event Password</label>
             <div class="row">
-              <input id="eventPassword" type="password" placeholder="Enter new event password" style="flex:1">
-              <button class="btn primary" id="setEventPasswordBtn">Set Password</button>
+              <input id="eventPassword" type="password" placeholder="Enter new event password" style="flex:1" aria-label="Event password" aria-describedby="eventPasswordHelp">
+              <button class="btn primary" id="setEventPasswordBtn" aria-label="Set event password">Set Password</button>
             </div>
+            <span id="eventPasswordHelp" class="sr-only">Optional password that judges must enter after connecting with event code</span>
             <div class="spacer"></div>
             ${state.settings.eventPasswordHash?`
               <button class="btn bad" id="removeEventPasswordBtn">Remove Password</button>
