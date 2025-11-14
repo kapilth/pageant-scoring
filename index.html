@@ -1242,6 +1242,11 @@
     function renderScoring(root){
       const judgeOptions=state.judges.map(j=>`<option value='${j.id}'>${j.name}</option>`).join('');
       const lockedId=state.me.judgeId; const lock=state.me.role==='judge'&&lockedId;
+      
+      // Get unique categories from contestants
+      const categories = [...new Set(state.contestants.map(c => c.category).filter(Boolean))];
+      const categoryOptions = `<option value="">All Categories</option>` + categories.map(cat => `<option value='${cat}'>${cat}</option>`).join('');
+      
       root.innerHTML=`
         <div class="card sticky">
           <div class="row-between">
@@ -1256,16 +1261,20 @@
             </div>
           </div>
           <div class="spacer"></div>
-          <div class="row" style="gap:16px;align-items:flex-end">
-            <div style="flex:1">
+          <div class="row" style="gap:16px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:200px">
               <label>Judge</label>
               <select id="sJudge" ${lock?'disabled':''}>${judgeOptions}</select>
             </div>
-            <div style="flex:1">
+            <div style="flex:1;min-width:200px">
               <label>Round</label>
               <select id="sRound">${state.rounds.map(r=>`<option value='${r.id}'>${r.name} ${r.sub?('— '+r.sub):''} (${r.type||'–'}) • Max ${Math.min(r.maxPoints||10,10)}</option>`).join('')}</select>
             </div>
-            <div class="muted" style="font-size:12px;white-space:nowrap">Contestants: ${state.contestants.length}</div>
+            <div style="flex:1;min-width:200px">
+              <label>Category Filter</label>
+              <select id="sCategoryFilter">${categoryOptions}</select>
+            </div>
+            <div class="muted" style="font-size:12px;white-space:nowrap" id="contestantCount">Contestants: ${state.contestants.length}</div>
           </div>
         </div>
         
@@ -1290,11 +1299,18 @@
       document.getElementById('sOut').onclick=signOut;
       document.getElementById('toAdmin').onclick=()=>goToLogin('admin');
 
-      const jSel=document.getElementById('sJudge'); const rSel=document.getElementById('sRound'); if(lock) jSel.value=lockedId;
-      jSel.onchange=()=>{ if(lock) jSel.value=lockedId; fill(); }; rSel.onchange=fill; fill();
+      const jSel=document.getElementById('sJudge'); 
+      const rSel=document.getElementById('sRound'); 
+      const catFilter=document.getElementById('sCategoryFilter');
+      if(lock) jSel.value=lockedId;
+      jSel.onchange=()=>{ if(lock) jSel.value=lockedId; fill(); }; 
+      rSel.onchange=fill; 
+      catFilter.onchange=fill;
+      fill();
 
       function fill(){
         const j=jSel.value, r=rSel.value; 
+        const selectedCategory = catFilter.value;
         const round=state.rounds.find(x=>x.id===r); 
         const body=document.getElementById('sBody');
         const submissionKey=`${j}|${r}`;
@@ -1309,16 +1325,25 @@
           );
         }
         
+        // Apply category filter from dropdown
+        if(selectedCategory) {
+          eligibleContestants = eligibleContestants.filter(c => c.category === selectedCategory);
+        }
+        
         // Update contestant count display
         const totalContestants = state.contestants.length;
         const eligibleCount = eligibleContestants.length;
-        const countDisplay = document.querySelector('.card.sticky .muted');
+        const countDisplay = document.getElementById('contestantCount');
         if(countDisplay) {
-          if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
-            countDisplay.innerHTML = `<span style="font-size:12px">Eligible: <strong>${eligibleCount}</strong> / ${totalContestants} contestants<br><span style="font-size:11px">Categories: ${round.eligibleCategories.join(', ')}</span></span>`;
+          let countText = `Showing: <strong>${eligibleCount}</strong>`;
+          if(selectedCategory) {
+            countText += ` (${selectedCategory})`;
+          } else if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
+            countText += ` (${round.eligibleCategories.join(', ')})`;
           } else {
-            countDisplay.innerHTML = `<span style="font-size:12px">Contestants: ${totalContestants} (All categories)</span>`;
+            countText += ` (All)`;
           }
+          countDisplay.innerHTML = `<span style="font-size:12px">${countText}</span>`;
         }
         
         const rows=eligibleContestants.sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ 
@@ -1327,7 +1352,7 @@
           return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; 
         }).join('');
         
-        body.innerHTML=rows||`<tr><td colspan="5" class="muted">${round && round.eligibleCategories && round.eligibleCategories.length > 0 ? 'No contestants in eligible categories' : 'Add contestants in Setup'}</td></tr>`;
+        body.innerHTML=rows||`<tr><td colspan="5" class="muted">${selectedCategory ? `No contestants in ${selectedCategory} category` : (round && round.eligibleCategories && round.eligibleCategories.length > 0 ? 'No contestants in eligible categories' : 'Add contestants in Setup')}</td></tr>`;
         
         if(!isSubmitted){
           body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; const [jId,cId,rId]=key.split('|'); const judge=state.judges.find(j=>j.id===jId); const contestant=state.contestants.find(c=>c.id===cId); const round=state.rounds.find(r=>r.id===rId); logAudit('set_score',`${judge?.name} → ${contestant?.name} (${round?.name}): ${clamped}`); saveState(); syncToFirestore(); inp.value=clamped; }; });
