@@ -244,7 +244,22 @@
     function goToLogin(mode=null){ state.ui.loginMode=mode; state.me={uid:null,name:'',role:'',judgeId:null}; saveState(); currentTab='login'; render(); }
     function signInAdmin(name){ state.me.role='admin'; state.me.name=name||'Admin'; saveState(); currentTab='setup'; render(); }
     function signInJudge(name){ state.me.role='judge'; state.me.name=name||'Judge'; saveState(); currentTab='scoring'; render(); }
-    function signOut(){ state.me={uid:null,name:'',role:'',judgeId:null}; saveState(); currentTab='login'; render(); }
+    async function signOut(){ 
+      // Sign out from Firebase Auth if connected
+      if(fb.auth) {
+        try {
+          await fb.auth.signOut();
+          logAudit('signout_firebase', {user: state.me.name});
+        } catch(error) {
+          console.warn('Firebase signout error:', error);
+        }
+      }
+      
+      state.me={uid:null,name:'',role:'',judgeId:null}; 
+      saveState(); 
+      currentTab='login'; 
+      render(); 
+    }
 
     // --- Firestore Functions ---
     async function initFirebase(config){
@@ -396,13 +411,15 @@
           <div class="card" ${mode==='admin'?"style='border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)'":''}>
             <h3>👑 Admin Login</h3>
             <div class="spacer"></div>
-            <label>Admin code</label>
-            <input id="aCode" type="password" placeholder="Default: ADMIN123">
+            <label>Admin Email</label>
+            <input id="aEmail" type="email" placeholder="admin@example.com">
             <div class="spacer"></div>
-            <label>Display name</label>
-            <input id="aName" placeholder="e.g., Event Director">
+            <label>Password</label>
+            <input id="aPassword" type="password" placeholder="Enter your password">
             <div class="spacer"></div>
             <button class="btn primary" id="aLogin" style="width:100%">Sign In as Admin</button>
+            <div class="spacer"></div>
+            <div class="muted" style="font-size:11px">🔒 Secured with Firebase Authentication. Contact event organizer for credentials.</div>
           </div>
         </div>`;
 
@@ -462,11 +479,58 @@
         };
       }
 
-      document.getElementById('aLogin').onclick=()=>{
-        const code=(document.getElementById('aCode').value||'').trim();
-        const name=(document.getElementById('aName').value||'').trim()||'Admin';
-        if(code && code!=='ADMIN123' && code!==localStorage.getItem('pageant_admin_code_v1')){ alert('Invalid admin code'); return; }
-        signInAdmin(name);
+      document.getElementById('aLogin').onclick=async ()=>{
+        const email=(document.getElementById('aEmail').value||'').trim();
+        const password=(document.getElementById('aPassword').value||'').trim();
+        
+        if(!email || !password){ 
+          alert('Please enter both email and password'); 
+          return; 
+        }
+        
+        if(!state.cloud.enabled || !fb.auth) {
+          alert('Please connect to an event first to enable authentication.');
+          return;
+        }
+        
+        const loginBtn = document.getElementById('aLogin');
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Signing in...';
+        
+        try {
+          const userCredential = await fb.auth.signInWithEmailAndPassword(email, password);
+          const user = userCredential.user;
+          
+          state.me.uid = user.uid;
+          state.me.name = user.displayName || user.email.split('@')[0];
+          state.me.role = 'admin';
+          state.me.judgeId = null;
+          
+          saveState();
+          logAudit('admin_login_firebase', {email: user.email, uid: user.uid});
+          
+          currentTab='setup';
+          render();
+        } catch(error) {
+          console.error('Login error:', error);
+          let errorMsg = 'Login failed. ';
+          
+          if(error.code === 'auth/user-not-found') {
+            errorMsg += 'No account found with this email.';
+          } else if(error.code === 'auth/wrong-password') {
+            errorMsg += 'Incorrect password.';
+          } else if(error.code === 'auth/invalid-email') {
+            errorMsg += 'Invalid email address.';
+          } else if(error.code === 'auth/too-many-requests') {
+            errorMsg += 'Too many failed attempts. Try again later.';
+          } else {
+            errorMsg += error.message;
+          }
+          
+          alert(errorMsg);
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Sign In as Admin';
+        }
       };
 
       function findJudgeByPin(pin){ const p=(pin||'').trim(); return state.judges.find(j=>String(j.code||'').trim()===p)||null; }
@@ -946,14 +1010,25 @@
           </div>
 
           <div class="card">
-            <h3>Admin Code</h3>
+            <h3>🔒 Admin Authentication</h3>
             <div class="spacer"></div>
-            <label>Set/change the Admin access code (used on the Login page)</label>
-            <input id="adminCodeNew" placeholder="e.g., SECRET-2025" type="password"/>
-            <div class="spacer"></div>
-            <button class="btn" id="saveAdminCode">Save Admin Code</button>
-            <div class="spacer"></div>
-            <div class="muted">Default is <span class="mono">ADMIN123</span> until you change it.</div>
+            <div style="background:rgba(34,211,238,0.1);padding:16px;border-radius:8px;border:1px solid rgba(34,211,238,0.3)">
+              <h4 style="margin:0 0 8px 0;font-size:14px">Secure Firebase Authentication</h4>
+              <p class="muted" style="font-size:12px;margin:0">Admin accounts are managed through Firebase Authentication. Admins must sign in with email and password on the login page.</p>
+              <div class="spacer"></div>
+              <div class="muted" style="font-size:11px">
+                <strong>To create admin accounts:</strong><br>
+                1. Go to Firebase Console → Authentication<br>
+                2. Add users with email/password<br>
+                3. Share credentials securely with admins
+              </div>
+            </div>
+            ${fb.auth && fb.auth.currentUser ? `
+              <div class="spacer"></div>
+              <div style="background:rgba(16,185,129,0.1);padding:12px;border-radius:8px;border:1px solid rgba(16,185,129,0.3)">
+                <div class="pill ok" style="font-size:12px">✓ Currently signed in as: ${fb.auth.currentUser.email}</div>
+              </div>
+            ` : ''}
           </div>
 
           <div class="card" style="grid-column:span 2">
@@ -1100,14 +1175,6 @@
       document.getElementById('autoSyncChk').onchange=e=>{
         state.cloud.autoSync = e.target.checked; 
         saveState();
-      };
-      
-      // Admin code
-      document.getElementById('saveAdminCode').onclick=()=>{ 
-        const v=(document.getElementById('adminCodeNew').value||'').trim(); 
-        if(!v){alert('Enter a code'); return;} 
-        localStorage.setItem('pageant_admin_code_v1', v); 
-        alert('Admin code updated.'); 
       };
       
       // Format audit details to be human-readable
@@ -1270,6 +1337,37 @@
           await loadFromFirestore();
           startFirestoreListener();
           console.log('Auto-reconnected to Firestore');
+          
+          // Set up Firebase Auth state listener
+          fb.auth.onAuthStateChanged((user) => {
+            if(user && state.me.role === 'admin') {
+              // User is signed in and already has admin role
+              console.log('Firebase Auth: Admin user authenticated', user.email);
+              state.me.uid = user.uid;
+              if(!state.me.name) {
+                state.me.name = user.displayName || user.email.split('@')[0];
+              }
+              saveState();
+            } else if(user && !state.me.role) {
+              // User is signed in but no local session - restore admin session
+              console.log('Firebase Auth: Restoring admin session', user.email);
+              state.me.uid = user.uid;
+              state.me.name = user.displayName || user.email.split('@')[0];
+              state.me.role = 'admin';
+              state.me.judgeId = null;
+              saveState();
+              currentTab = 'setup';
+              render();
+            } else if(!user && state.me.role === 'admin') {
+              // User signed out but local session still exists - clear it
+              console.log('Firebase Auth: User signed out, clearing session');
+              state.me = {uid:null,name:'',role:'',judgeId:null};
+              saveState();
+              currentTab = 'login';
+              render();
+            }
+          });
+          
         }catch(err){
           console.warn('Failed to auto-reconnect to Firestore:', err);
           // Don't disable cloud - user can manually reconnect from Settings
