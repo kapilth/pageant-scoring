@@ -424,8 +424,8 @@
       <p class="muted" style="font-size:12px">Select a judge and round to unlock their submitted scores</p>
       <div id="submissionsList" class="muted" style="font-size:12px;margin-bottom:8px"></div>
       <div class="row">
-        <select id="unlockJudge" style="width:200px"></select>
-        <select id="unlockRound" style="width:200px"></select>
+        <select id="unlockJudge" style="width:250px"></select>
+        <select id="unlockRound" style="width:400px"></select>
         <button class="btn bad" id="unlockBtn">Unlock Scores</button>
       </div>
     </details>
@@ -473,7 +473,7 @@
       submissions: {},         // key: `${judgeId}|${roundId}` -> timestamp
       settings: { roundAggregation:'average', eventPasswordHash:null }, // eventPasswordHash for second layer
       me: { uid:null, name:'', role:'', judgeId:null },
-      ui: { loginMode:null, editingRoundId:null, finalResults:{sortColumn:'total',sortDir:'desc',filter:''}, showEventCode:false },
+      ui: { loginMode:null, editingRoundId:null, finalResults:{sortColumn:'total',sortDir:'desc',filter:''}, showEventCode:false, scoringView:{judgeId:'',roundId:'',category:''} },
       audit: [],
       cloud: { enabled:false, eventCode:'', autoSync:true, firebaseConfig:null, passwordVerified:false }
     };
@@ -545,12 +545,14 @@
           <button id="exportCsvBtn">Export CSV</button>
           <button onclick="document.getElementById('importJsonInput').click()">Import JSON</button>
           <input type="file" id="importJsonInput" accept=".json" style="display:none">
+          <button id="clearScoresBtn" style="background:#f59e0b">Clear Scores Only</button>
           <button id="resetBtn" style="background:#e74c3c">Reset All</button>
         `;
         
         // Wire up event handlers to named functions
         document.getElementById('exportJsonBtn').onclick = exportJson;
         document.getElementById('exportCsvBtn').onclick = exportCsv;
+        document.getElementById('clearScoresBtn').onclick = clearScoresOnly;
         document.getElementById('resetBtn').onclick = resetApp;
         document.getElementById('importJsonInput').onchange = importJson;
         
@@ -609,12 +611,32 @@
         const data = snap.data();
         if(!data) return;
         
+        // Preserve current judge view selections before updating
+        const currentJudge = document.getElementById('sJudge')?.value;
+        const currentRound = document.getElementById('sRound')?.value;
+        const currentCategory = document.getElementById('sCategoryFilter')?.value;
+        
         // Merge cloud data into local state but keep my user session
         const { me, cloud, ui, ...rest } = data;
         const keep = { me: state.me, cloud: state.cloud, ui: state.ui };
         Object.assign(state, rest, keep);
         saveState();
         render();
+        
+        // Restore selections after render if we're on the scoring page
+        if(currentTab === 'scoring' && currentJudge && currentRound) {
+          setTimeout(() => {
+            const jSel = document.getElementById('sJudge');
+            const rSel = document.getElementById('sRound');
+            const catFilter = document.getElementById('sCategoryFilter');
+            if(jSel && jSel.value !== currentJudge) jSel.value = currentJudge;
+            if(rSel && rSel.value !== currentRound) rSel.value = currentRound;
+            if(catFilter && currentCategory) catFilter.value = currentCategory;
+            // Trigger fill to update the table with restored selections
+            const fillEvent = new Event('change');
+            rSel?.dispatchEvent(fillEvent);
+          }, 0);
+        }
       }, err => {
         console.error('Firestore listener error:', err);
       });
@@ -890,20 +912,28 @@
           };
           
           try {
-            const app = firebase.initializeApp(firebaseConfig);
+            // Check if Firebase app already exists
+            let app;
+            try {
+              app = firebase.app();
+            } catch(e) {
+              app = firebase.initializeApp(firebaseConfig);
+            }
             fb.auth = firebase.auth(app);
             fb.db = firebase.firestore(app);
             state.cloud.firebaseConfig = firebaseConfig;
             state.cloud.enabled = true;
             logAudit('firebase_init', {source: 'admin_login'});
           } catch(err) {
+            console.error('Firebase init error:', err);
             alert('Failed to initialize Firebase: ' + err.message);
             return;
           }
         }
         
         if(!fb.auth) {
-          alert('Authentication service not available.');
+          console.error('fb.auth is null or undefined');
+          alert('Authentication service not available. Please refresh the page and try again.');
           return;
         }
         
@@ -960,6 +990,7 @@
         const name=(document.getElementById('jName').value||'').trim();
         const pin=(document.getElementById('jPin').value||'').trim();
         if(!name){ alert('Enter your name'); return; }
+        if(!pin){ alert('Enter your PIN'); return; }
         if(!state.cloud.enabled) {
           alert('Please connect to an event first using the event code above.');
           return;
@@ -969,21 +1000,34 @@
           return;
         }
         
-        // Try hashed password first (new system), fallback to plaintext (old system)
-        let judge = await findJudgeByPinHash(pin);
+        // Find judge by name (case-insensitive)
+        const judge = state.judges.find(j => j.name.toLowerCase() === name.toLowerCase());
         if(!judge) {
-          judge = findJudgeByPin(pin);
-          if(judge) {
-            // Migrate old plaintext password to hash
-            judge.passwordHash = await hashPassword(judge.code);
-            delete judge.code; // Remove plaintext
-            saveState();
-            syncToFirestore();
-          }
+          alert('Judge name not found. Please check your name or contact the admin.');
+          return;
         }
         
-        if(!judge){ alert('Invalid/unknown Judge PIN. Contact the admin.'); return; }
-        state.me.judgeId=judge.id; saveState(); signInJudge(name);
+        // Validate PIN against this specific judge
+        const pinHash = await hashPassword(pin);
+        if(judge.passwordHash && judge.passwordHash === pinHash) {
+          // Correct PIN with hashed password
+          state.me.judgeId = judge.id;
+          state.me.name = judge.name; // Use the exact name from database
+          saveState();
+          signInJudge(judge.name);
+        } else if(judge.code && judge.code === pin) {
+          // Legacy plaintext password - migrate to hash
+          judge.passwordHash = await hashPassword(pin);
+          delete judge.code;
+          state.me.judgeId = judge.id;
+          state.me.name = judge.name;
+          saveState();
+          syncToFirestore();
+          signInJudge(judge.name);
+        } else {
+          alert('Incorrect PIN for ' + judge.name + '. Please try again or contact the admin.');
+          return;
+        }
       };
     }
 
@@ -1326,10 +1370,41 @@
       const jSel=document.getElementById('sJudge'); 
       const rSel=document.getElementById('sRound'); 
       const catFilter=document.getElementById('sCategoryFilter');
-      if(lock) jSel.value=lockedId;
-      jSel.onchange=()=>{ if(lock) jSel.value=lockedId; fill(); }; 
-      rSel.onchange=fill; 
-      catFilter.onchange=fill;
+      
+      // Restore previous selections from state
+      if(!state.ui.scoringView) state.ui.scoringView = {judgeId:'',roundId:'',category:''};
+      if(lock) {
+        jSel.value=lockedId;
+        state.ui.scoringView.judgeId = lockedId;
+      } else if(state.ui.scoringView.judgeId && state.judges.find(j => j.id === state.ui.scoringView.judgeId)) {
+        jSel.value = state.ui.scoringView.judgeId;
+      }
+      if(state.ui.scoringView.roundId && state.rounds.find(r => r.id === state.ui.scoringView.roundId)) {
+        rSel.value = state.ui.scoringView.roundId;
+      }
+      if(state.ui.scoringView.category) {
+        catFilter.value = state.ui.scoringView.category;
+      }
+      
+      jSel.onchange=()=>{ 
+        if(lock) {
+          jSel.value=lockedId;
+        } else {
+          state.ui.scoringView.judgeId = jSel.value;
+          saveState();
+        }
+        fill(); 
+      }; 
+      rSel.onchange=()=>{
+        state.ui.scoringView.roundId = rSel.value;
+        saveState();
+        fill();
+      }; 
+      catFilter.onchange=()=>{
+        state.ui.scoringView.category = catFilter.value;
+        saveState();
+        fill();
+      };
       fill();
 
       function fill(){
@@ -1373,13 +1448,52 @@
         const rows=eligibleContestants.sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ 
           const key=scoreKey(j,c.id,r); 
           const cur=state.scores[key]||{score:'',notes:''}; 
-          return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; 
+          return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='text' inputmode='numeric' pattern='[0-9]*' maxlength='2' style='width:60px' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; 
         }).join('');
         
         body.innerHTML=rows||`<tr><td colspan="5" class="muted">${selectedCategory ? `No contestants in ${selectedCategory} category` : (round && round.eligibleCategories && round.eligibleCategories.length > 0 ? 'No contestants in eligible categories' : 'Add contestants in Setup')}</td></tr>`;
         
         if(!isSubmitted){
-          body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; const [jId,cId,rId]=key.split('|'); const judge=state.judges.find(j=>j.id===jId); const contestant=state.contestants.find(c=>c.id===cId); const round=state.rounds.find(r=>r.id===rId); logAudit('set_score',`${judge?.name} → ${contestant?.name} (${round?.name}): ${clamped}`); saveState(); syncToFirestore(); inp.value=clamped; }; });
+          body.querySelectorAll('input[data-score]').forEach(inp=>{ 
+            inp.onchange=()=>{ 
+              const key=inp.dataset.score; 
+              const inputVal=inp.value.trim();
+              
+              // Validate input
+              if(inputVal === '') {
+                // Allow empty - will be treated as 0 on submit
+                state.scores[key]=state.scores[key]||{}; 
+                state.scores[key].score='';
+                saveState(); 
+                syncToFirestore();
+                return;
+              }
+              
+              const v=parseInt(inputVal);
+              if(isNaN(v)) {
+                alert('Please enter a valid number between 0 and 10');
+                inp.value=state.scores[key]?.score || '';
+                return;
+              }
+              
+              if(v < 0 || v > 10) {
+                alert('Score must be between 0 and 10');
+                inp.value=state.scores[key]?.score || '';
+                return;
+              }
+              
+              state.scores[key]=state.scores[key]||{}; 
+              state.scores[key].score=v; 
+              const [jId,cId,rId]=key.split('|'); 
+              const judge=state.judges.find(j=>j.id===jId); 
+              const contestant=state.contestants.find(c=>c.id===cId); 
+              const round=state.rounds.find(r=>r.id===rId); 
+              logAudit('set_score',`${judge?.name} → ${contestant?.name} (${round?.name}): ${v}`); 
+              saveState(); 
+              syncToFirestore(); 
+              inp.value=v;
+            }; 
+          });
           body.querySelectorAll('input[data-notes]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.notes; state.scores[key]=state.scores[key]||{}; state.scores[key].notes=inp.value; saveState(); syncToFirestore(); }; });
         }
         
@@ -1404,13 +1518,36 @@
       document.getElementById('sSubmit').onclick=()=>{ 
         const judgeId = jSel.value;
         const roundId = rSel.value;
+        const selectedCategory = catFilter.value;
         const key = `${judgeId}|${roundId}`;
+        const round = state.rounds.find(x=>x.id===roundId);
         
-        // Check if any scores have been entered for this judge and round
+        // Get the same filtered list that's being displayed
+        let eligibleContestants = [...state.contestants];
+        
+        // Filter by round's eligible categories
+        if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
+          eligibleContestants = eligibleContestants.filter(c => 
+            round.eligibleCategories.includes(c.category)
+          );
+        }
+        
+        // Apply category filter from dropdown
+        if(selectedCategory) {
+          eligibleContestants = eligibleContestants.filter(c => c.category === selectedCategory);
+        }
+        
+        // Check if there are no contestants to score
+        if(eligibleContestants.length === 0) {
+          alert('No contestants to score in the current selection.');
+          return;
+        }
+        
+        // Check if any scores have been entered for DISPLAYED contestants only
         let filledScores = 0;
         let emptyScores = 0;
         
-        state.contestants.forEach(contestant => {
+        eligibleContestants.forEach(contestant => {
           const scoreKey = `${judgeId}|${contestant.id}|${roundId}`;
           const scoreData = state.scores[scoreKey];
           
@@ -1421,20 +1558,20 @@
           }
         });
         
-        // Validate that at least some scores are filled
-        if(filledScores === 0) {
-          alert('Please enter at least one score before submitting.');
-          return;
-        }
-        
-        // Warn if not all scores are filled
+        // Only show error if there are empty scores in the DISPLAYED list
         if(emptyScores > 0) {
-          const totalContestants = state.contestants.length;
-          if(!confirm(`You have only scored ${filledScores} out of ${totalContestants} contestants.\n\nEmpty scores will be counted as 0.\n\nDo you want to submit anyway?`)) {
+          if(filledScores === 0) {
+            alert('Please enter at least one score before submitting.');
+            return;
+          }
+          
+          const totalDisplayed = eligibleContestants.length;
+          if(!confirm(`You have only scored ${filledScores} out of ${totalDisplayed} displayed contestants.\n\nEmpty scores will be counted as 0.\n\nDo you want to submit anyway?`)) {
             return;
           }
         }
         
+        // All displayed contestants are scored - proceed without warning
         // Submit
         state.submissions[key] = new Date().toISOString(); 
         logAudit('submit_scores', key); 
@@ -2007,6 +2144,19 @@
       download('all_scores.csv', toCSV(rows));
     }
     
+    function clearScoresOnly(){
+      if(confirm('Clear ALL scores and submissions but keep judges, contestants, and rounds?\n\nThis is useful for starting a new event with the same setup.')){
+        state.scores = {};
+        state.submissions = {};
+        state.audit = state.audit || [];
+        logAudit('clear_scores', 'All scores and submissions cleared for new event');
+        saveState();
+        syncToFirestore(true);
+        alert('Scores and submissions cleared! Judges, contestants, and rounds are preserved.\n\nYou can now export this as a clean template for your new event.');
+        render();
+      }
+    }
+    
     function resetApp(){ 
       if(confirm('Clear all local data?')){ 
         localStorage.removeItem(LS_KEY); 
@@ -2055,7 +2205,7 @@
       if(!judgeSelect || !roundSelect) return;
       
       judgeSelect.innerHTML='<option value="">Select Judge...</option>'+state.judges.map(j=>`<option value="${j.id}">${j.name}</option>`).join('');
-      roundSelect.innerHTML='<option value="">Select Round...</option>'+state.rounds.map(r=>`<option value="${r.id}">${r.name}</option>`).join('');
+      roundSelect.innerHTML='<option value="">Select Round...</option>'+state.rounds.map(r=>`<option value="${r.id}">${r.name}${r.sub?(' — '+r.sub):''} (${r.type||'–'})${r.eligibleCategories && r.eligibleCategories.length > 0 ? ' • ' + r.eligibleCategories.join(', ') : ''}</option>`).join('');
       
       // Show current submissions
       if(submissionsList){
@@ -2063,7 +2213,8 @@
           const [judgeId, roundId]=key.split('|');
           const judge=state.judges.find(j=>j.id===judgeId);
           const round=state.rounds.find(r=>r.id===roundId);
-          return `${judge?.name||'Unknown'} - ${round?.name||'Unknown'}`;
+          const roundDisplay = round ? `${round.name}${round.sub?(' — '+round.sub):''}${round.eligibleCategories && round.eligibleCategories.length > 0 ? ' (' + round.eligibleCategories.join(', ') + ')' : ''}` : 'Unknown';
+          return `${judge?.name||'Unknown'} - ${roundDisplay}`;
         });
         if(submissions.length>0){
           submissionsList.innerHTML='<strong>Current submissions:</strong> '+submissions.join(', ');
@@ -2093,13 +2244,15 @@
         }
         const judge=state.judges.find(j=>j.id===judgeId);
         const round=state.rounds.find(r=>r.id===roundId);
-        if(confirm(`Are you sure you want to unlock scores for ${judge?.name} in ${round?.name}? They will be able to edit and resubmit.`)){
+        const roundDisplay = round ? `${round.name}${round.sub?(' — '+round.sub):''}${round.eligibleCategories && round.eligibleCategories.length > 0 ? ' (' + round.eligibleCategories.join(', ') + ')' : ''}` : 'Unknown Round';
+        if(confirm(`Are you sure you want to unlock scores for ${judge?.name} in ${roundDisplay}? They will be able to edit and resubmit.`)){
           delete state.submissions[key];
           logAudit('unlock_scores',key);
           saveState();
           syncToFirestore(true);
           alert('Scores unlocked successfully. Judge can now edit and resubmit.');
           populateUnlockSelects();
+          render(); // Refresh the view to show unlocked state
         }
       };
     }
