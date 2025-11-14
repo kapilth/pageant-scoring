@@ -179,6 +179,7 @@
       {id:'settings',label:'Settings'}
     ];
     let currentTab='login';
+    let setupSubTab='judges'; // Track which setup sub-tab is active
 
     function visibleTabs(){
       if(state.me.role==='admin') return routes.filter(r=>r.id!=='login');
@@ -356,20 +357,26 @@
       const mode=state.ui.loginMode;
       root.innerHTML=`
         <div class="grid col-1">
-          <!-- Event Code Card - Prominent at top -->
-          <div class="card" style="background:rgba(34,211,238,0.08);border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(34,211,238,0.05)">
-            <h3 style="color:var(--accent)">📡 Event Connection</h3>
-            <div class="spacer"></div>
-            <p class="muted" style="font-size:14px">Enter the event code shared by the event organizer to connect to the pageant.</p>
-            <div class="spacer"></div>
-            <label>Event Code</label>
-            <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="font-size:16px;font-weight:600">
-            <div class="spacer"></div>
-            ${state.cloud.enabled ? 
-              `<div class="pill ok" style="display:inline-block;font-size:14px">✓ Connected to: ${state.cloud.eventCode}</div>` : 
-              `<button class="btn primary" id="connectEventBtn" style="width:100%;padding:14px">Connect to Event</button>`
-            }
-          </div>
+          <!-- Event Code Card - Compact -->
+          ${state.cloud.enabled ? 
+            `<div class="card" style="background:rgba(16,185,129,0.08);border:1px solid var(--good);padding:12px;max-width:400px;margin:0 auto">
+              <div class="row" style="gap:8px;justify-content:center">
+                <span class="pill ok" style="font-size:13px">✓ Connected to: ${state.cloud.eventCode}</span>
+              </div>
+            </div>` :
+            `<div class="card" style="background:rgba(34,211,238,0.08);border:2px solid var(--accent);padding:16px;max-width:600px;margin:0 auto">
+              <div class="row-between" style="align-items:flex-start">
+                <div style="flex:1">
+                  <h4 style="color:var(--accent);margin:0 0 8px 0">📡 Event Connection</h4>
+                  <p class="muted" style="font-size:12px;margin:0 0 12px 0">Enter event code to connect</p>
+                  <div class="row" style="gap:8px">
+                    <input id="loginEventCode" value="${state.cloud.eventCode||''}" placeholder="e.g., pageant2025-x8k2m9p5n" style="flex:1;font-size:14px;padding:10px">
+                    <button class="btn primary" id="connectEventBtn" style="padding:10px 16px;font-size:14px">Connect</button>
+                  </div>
+                </div>
+              </div>
+            </div>`
+          }
         </div>
         
         <div class="spacer"></div>
@@ -493,17 +500,51 @@
               <button class="btn" id="toJudge">Sign In as Judge</button>
             </div>
           </div>
+          <div class="spacer"></div>
+          <nav style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="tab ${setupSubTab==='judges'?'active':''}" id="judgesTab">Judges (${state.judges.length})</button>
+            <button class="tab ${setupSubTab==='contestants'?'active':''}" id="contestantsTab">Contestants (${state.contestants.length})</button>
+            <button class="tab ${setupSubTab==='rounds'?'active':''}" id="roundsTab">Rounds (${state.rounds.length})</button>
+          </nav>
         </div>
-        <div class="grid col-3">
+        
+        <div class="spacer"></div>
+        
+        <div id="setupContent"></div>`;
+
+      document.getElementById('setupOut').onclick=signOut;
+      document.getElementById('toJudge').onclick=()=>goToLogin('judge');
+      
+      // Setup tab switching
+      document.getElementById('judgesTab').onclick=()=>{setupSubTab='judges'; renderSetup(root);};
+      document.getElementById('contestantsTab').onclick=()=>{setupSubTab='contestants'; renderSetup(root);};
+      document.getElementById('roundsTab').onclick=()=>{setupSubTab='rounds'; renderSetup(root);};
+      
+      const content = document.getElementById('setupContent');
+      
+      // Render active tab content
+      if(setupSubTab === 'judges'){
+        content.innerHTML=`
           <div class="card ${isAdmin?'':'muted'}">
-            <div class="row-between"><h3>Judges</h3><span class="muted">${state.judges.length}</span></div>
+            <div class="row-between"><h3>Judges</h3><span class="muted">${state.judges.length} total</span></div>
             <div class="spacer"></div>
             <div class="row"><input id="jAddName" placeholder="Judge name" ${isAdmin?'':'disabled'}><input id="jAddPin" placeholder="PIN" ${isAdmin?'':'disabled'} style="max-width:140px"><button class="btn primary" id="jAdd" ${isAdmin?'':'disabled'}>Add</button></div>
             <div class="spacer"></div>
             <table><thead><tr><th>Name</th><th>PIN</th><th></th></tr></thead><tbody id="jTable"></tbody></table>
-          </div>
+          </div>`;
+        
+        const jt=document.getElementById('jTable');
+        jt.innerHTML=state.judges.map(j=>`<tr><td>${j.name}</td><td>${j.code||''}</td><td><button class='btn' data-del='${j.id}'>Remove</button></td></tr>`).join('');
+        jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); logAudit('remove_judge',b.dataset.del); saveState(); syncToFirestore(); renderSetup(root); });
+        
+        if(isAdmin){
+          document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); logAudit('add_judge',n); saveState(); syncToFirestore(); renderSetup(root); };
+        }
+      }
+      else if(setupSubTab === 'contestants'){
+        content.innerHTML=`
           <div class="card ${isAdmin?'':'muted'}">
-            <div class="row-between"><h3>Contestants</h3><span class="muted">${state.contestants.length}</span></div>
+            <div class="row-between"><h3>Contestants</h3><span class="muted">${state.contestants.length} total</span></div>
             <div class="spacer"></div>
             <div class="grid col-2">
               <input id="cName" placeholder="Contestant name" ${isAdmin?'':'disabled'}>
@@ -513,7 +554,18 @@
             </div>
             <div class="spacer"></div>
             <table><thead><tr><th>#</th><th>Name</th><th>Category</th><th></th></tr></thead><tbody id="cTable"></tbody></table>
-          </div>
+          </div>`;
+        
+        const ct=document.getElementById('cTable');
+        ct.innerHTML=state.contestants.map(c=>`<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><button class='btn' data-dc='${c.id}'>Remove</button></td></tr>`).join('');
+        ct.querySelectorAll('button[data-dc]').forEach(b=> b.onclick=()=>{ state.contestants=state.contestants.filter(x=>x.id!==b.dataset.dc); logAudit('remove_contestant',b.dataset.dc); saveState(); syncToFirestore(); renderSetup(root); });
+        
+        if(isAdmin){
+          document.getElementById('cAdd').onclick=()=>{ const n=document.getElementById('cName').value.trim(); const num=parseInt(document.getElementById('cNum').value||''); const cat=document.getElementById('cCat').value.trim(); if(!n) return; state.contestants.push({id:uid(),name:n,number:isNaN(num)?null:num,category:cat}); logAudit('add_contestant',n); saveState(); syncToFirestore(); renderSetup(root); };
+        }
+      }
+      else if(setupSubTab === 'rounds'){
+        content.innerHTML=`
           <div class="card ${isAdmin?'':'muted'}">
             <div class="row-between"><h3>Rounds</h3><span class="pill ${Math.abs(weightTotal-100)<=0.5?'ok':'warn'}">Weights: ${weightTotal||0}%</span></div>
             <div class="spacer"></div>
@@ -527,28 +579,15 @@
             </div>
             <div class="spacer"></div>
             <table><thead><tr><th>Round</th><th>Type</th><th>Sub</th><th>Weight %</th><th>Max</th><th></th></tr></thead><tbody id="rTable"></tbody></table>
-          </div>
-        </div>`;
-
-      document.getElementById('setupOut').onclick=signOut;
-      document.getElementById('toJudge').onclick=()=>goToLogin('judge');
-
-      const jt=document.getElementById('jTable');
-      jt.innerHTML=state.judges.map(j=>`<tr><td>${j.name}</td><td>${j.code||''}</td><td><button class='btn' data-del='${j.id}'>Remove</button></td></tr>`).join('');
-      jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ state.judges=state.judges.filter(x=>x.id!==b.dataset.del); logAudit('remove_judge',b.dataset.del); saveState(); syncToFirestore(); render(); });
-
-      const ct=document.getElementById('cTable');
-      ct.innerHTML=state.contestants.map(c=>`<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><button class='btn' data-dc='${c.id}'>Remove</button></td></tr>`).join('');
-      ct.querySelectorAll('button[data-dc]').forEach(b=> b.onclick=()=>{ state.contestants=state.contestants.filter(x=>x.id!==b.dataset.dc); logAudit('remove_contestant',b.dataset.dc); saveState(); syncToFirestore(); render(); });
-
-      const rt=document.getElementById('rTable');
-      rt.innerHTML=state.rounds.map(r=>`<tr><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-dr='${r.id}'>Remove</button></td></tr>`).join('');
-      rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); logAudit('remove_round',b.dataset.dr); saveState(); syncToFirestore(); render(); });
-
-      if(isAdmin){
-        document.getElementById('jAdd').onclick=()=>{ const n=document.getElementById('jAddName').value.trim(); const p=(document.getElementById('jAddPin').value||'').trim(); if(!n) return; state.judges.push({id:uid(),name:n,code:p}); logAudit('add_judge',n); saveState(); syncToFirestore(); render(); };
-        document.getElementById('cAdd').onclick=()=>{ const n=document.getElementById('cName').value.trim(); const num=parseInt(document.getElementById('cNum').value||''); const cat=document.getElementById('cCat').value.trim(); if(!n) return; state.contestants.push({id:uid(),name:n,number:isNaN(num)?null:num,category:cat}); logAudit('add_contestant',n); saveState(); syncToFirestore(); render(); };
-        document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); logAudit('add_round',n); saveState(); syncToFirestore(); render(); };
+          </div>`;
+        
+        const rt=document.getElementById('rTable');
+        rt.innerHTML=state.rounds.map(r=>`<tr><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-dr='${r.id}'>Remove</button></td></tr>`).join('');
+        rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); logAudit('remove_round',b.dataset.dr); saveState(); syncToFirestore(); renderSetup(root); });
+        
+        if(isAdmin){
+          document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); logAudit('add_round',n); saveState(); syncToFirestore(); renderSetup(root); };
+        }
       }
     }
 
@@ -682,16 +721,157 @@
 
     function renderFinalResults(root){
       const totalW=sumWeights();
+      
+      // State for sorting and filtering
+      if(!state.ui.finalResults) state.ui.finalResults = {sortColumn: 'total', sortDir: 'desc', filter: ''};
+      const sortState = state.ui.finalResults;
+      
       root.innerHTML=`
-        <div class="card sticky"><div class="row-between"><div class="row" style="gap:16px"><div class="pill ${Math.abs(totalW-100)<=0.5?'ok':'warn'}">Total weight: ${totalW||0}%</div><div class="muted">Weights are normalized if not exactly 100%</div></div><div class="row"><button class="btn" id="frCsv">Download CSV</button><button class="btn" id="frOut">Sign Out</button><button class="btn" id="frAdmin">Sign In as Admin</button><button class="btn" id="frJudge">Sign In as Judge</button></div></div></div>
+        <div class="card sticky">
+          <div class="row-between">
+            <div class="row" style="gap:16px">
+              <div class="pill ${Math.abs(totalW-100)<=0.5?'ok':'warn'}">Total weight: ${totalW||0}%</div>
+              <div class="muted">Weights are normalized if not exactly 100%</div>
+            </div>
+            <div class="row">
+              <button class="btn" id="frCsv">Download CSV</button>
+              <button class="btn" id="frOut">Sign Out</button>
+              <button class="btn" id="frAdmin">Sign In as Admin</button>
+              <button class="btn" id="frJudge">Sign In as Judge</button>
+            </div>
+          </div>
+          <div class="spacer"></div>
+          <div class="row" style="gap:12px">
+            <input id="frFilter" placeholder="🔍 Filter by name, number, or category..." value="${sortState.filter}" style="flex:1;font-size:14px">
+            <button class="btn" id="frClearFilter">Clear</button>
+          </div>
+        </div>
         <div class="spacer"></div>
-        <div class="card"><table><thead><tr><th>#</th><th>Name</th><th>Category</th>${state.rounds.map(r=>`<th>${r.name}</th>`).join('')}<th>Total (weighted)</th></tr></thead><tbody id="frBody"></tbody></table></div>`;
-      document.getElementById('frOut').onclick=signOut; document.getElementById('frAdmin').onclick=()=>goToLogin('admin'); document.getElementById('frJudge').onclick=()=>goToLogin('judge');
-      function compute(ct){ const tot=sumWeights()||1; let total=0; const parts=[]; state.rounds.forEach(r=>{ const rs=getRoundScore(ct.id,r); const max=r.maxPoints||10; const pct=rs?(rs.value/max)*100:0; const w=(r.weight||0)/tot; const contrib=pct*w; parts.push(contrib); total+=contrib; }); return {total,parts}; }
-      const rows=state.contestants.map(ct=>({ct,fr:compute(ct)})).sort((a,b)=>b.fr.total-a.fr.total);
-      const body=document.getElementById('frBody');
-      body.innerHTML=rows.map(({ct,fr})=>`<tr><td>${ct.number??''}</td><td>${ct.name}</td><td>${ct.category||''}</td>${fr.parts.map(v=>`<td>${v.toFixed(2)}</td>`).join('')}<td><strong>${fr.total.toFixed(2)}</strong></td></tr>`).join('');
-      document.getElementById('frCsv').onclick=()=>{ const head=["Contestant #","Name","Category",...state.rounds.map(r=>r.name),"Total (weighted)"]; const out=[head]; rows.forEach(({ct,fr})=> out.push([ct.number??'',ct.name,ct.category||'',...fr.parts.map(v=>v.toFixed(2)),fr.total.toFixed(2)])); download('final_results_weighted.csv', toCSV(out)); };
+        <div class="card">
+          <div style="overflow-x:auto">
+            <table style="width:100%;min-width:max-content">
+              <thead>
+                <tr>
+                  <th style="cursor:pointer" data-sort="number"># ${sortState.sortColumn==='number'?(sortState.sortDir==='asc'?'↑':'↓'):''}</th>
+                  <th style="cursor:pointer" data-sort="name">Name ${sortState.sortColumn==='name'?(sortState.sortDir==='asc'?'↑':'↓'):''}</th>
+                  <th style="cursor:pointer" data-sort="category">Category ${sortState.sortColumn==='category'?(sortState.sortDir==='asc'?'↑':'↓'):''}</th>
+                  ${state.rounds.map((r,i)=>`<th style="cursor:pointer" data-sort="round${i}">${r.name} ${sortState.sortColumn===`round${i}`?(sortState.sortDir==='asc'?'↑':'↓'):''}</th>`).join('')}
+                  <th style="cursor:pointer" data-sort="total">Total ${sortState.sortColumn==='total'?(sortState.sortDir==='asc'?'↑':'↓'):''}</th>
+                </tr>
+              </thead>
+              <tbody id="frBody"></tbody>
+            </table>
+          </div>
+        </div>`;
+      
+      document.getElementById('frOut').onclick=signOut; 
+      document.getElementById('frAdmin').onclick=()=>goToLogin('admin'); 
+      document.getElementById('frJudge').onclick=()=>goToLogin('judge');
+      
+      // Filter functionality
+      const filterInput = document.getElementById('frFilter');
+      filterInput.oninput = (e) => {
+        sortState.filter = e.target.value;
+        saveState();
+        renderFinalResultsTable();
+      };
+      
+      document.getElementById('frClearFilter').onclick = () => {
+        sortState.filter = '';
+        filterInput.value = '';
+        saveState();
+        renderFinalResultsTable();
+      };
+      
+      // Sorting functionality
+      document.querySelectorAll('th[data-sort]').forEach(th => {
+        th.onclick = () => {
+          const col = th.dataset.sort;
+          if(sortState.sortColumn === col) {
+            sortState.sortDir = sortState.sortDir === 'asc' ? 'desc' : 'asc';
+          } else {
+            sortState.sortColumn = col;
+            sortState.sortDir = 'desc';
+          }
+          saveState();
+          renderFinalResults(root);
+        };
+      });
+      
+      function compute(ct){ 
+        const tot=sumWeights()||1; 
+        let total=0; 
+        const parts=[]; 
+        state.rounds.forEach(r=>{ 
+          const rs=getRoundScore(ct.id,r); 
+          const max=r.maxPoints||10; 
+          const pct=rs?(rs.value/max)*100:0; 
+          const w=(r.weight||0)/tot; 
+          const contrib=pct*w; 
+          parts.push(contrib); 
+          total+=contrib; 
+        }); 
+        return {total,parts}; 
+      }
+      
+      function renderFinalResultsTable() {
+        let rows = state.contestants.map(ct=>({ct,fr:compute(ct)}));
+        
+        // Apply filter
+        if(sortState.filter) {
+          const filterLower = sortState.filter.toLowerCase();
+          rows = rows.filter(({ct}) => {
+            return ct.name.toLowerCase().includes(filterLower) ||
+                   (ct.category||'').toLowerCase().includes(filterLower) ||
+                   String(ct.number||'').includes(filterLower);
+          });
+        }
+        
+        // Apply sorting
+        rows.sort((a,b) => {
+          let valA, valB;
+          
+          if(sortState.sortColumn === 'number') {
+            valA = a.ct.number ?? 9999;
+            valB = b.ct.number ?? 9999;
+          } else if(sortState.sortColumn === 'name') {
+            valA = a.ct.name.toLowerCase();
+            valB = b.ct.name.toLowerCase();
+          } else if(sortState.sortColumn === 'category') {
+            valA = (a.ct.category||'').toLowerCase();
+            valB = (b.ct.category||'').toLowerCase();
+          } else if(sortState.sortColumn === 'total') {
+            valA = a.fr.total;
+            valB = b.fr.total;
+          } else if(sortState.sortColumn.startsWith('round')) {
+            const roundIndex = parseInt(sortState.sortColumn.replace('round',''));
+            valA = a.fr.parts[roundIndex] || 0;
+            valB = b.fr.parts[roundIndex] || 0;
+          } else {
+            valA = a.fr.total;
+            valB = b.fr.total;
+          }
+          
+          if(typeof valA === 'string') {
+            return sortState.sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+          } else {
+            return sortState.sortDir === 'asc' ? valA - valB : valB - valA;
+          }
+        });
+        
+        const body = document.getElementById('frBody');
+        body.innerHTML = rows.map(({ct,fr})=>`<tr><td>${ct.number??''}</td><td>${ct.name}</td><td>${ct.category||''}</td>${fr.parts.map(v=>`<td>${v.toFixed(2)}</td>`).join('')}<td><strong>${fr.total.toFixed(2)}</strong></td></tr>`).join('') || '<tr><td colspan="100" style="text-align:center" class="muted">No results match filter</td></tr>';
+      }
+      
+      renderFinalResultsTable();
+      
+      document.getElementById('frCsv').onclick=()=>{ 
+        const head=["Contestant #","Name","Category",...state.rounds.map(r=>r.name),"Total (weighted)"]; 
+        const out=[head]; 
+        let rows = state.contestants.map(ct=>({ct,fr:compute(ct)}));
+        rows.forEach(({ct,fr})=> out.push([ct.number??'',ct.name,ct.category||'',...fr.parts.map(v=>v.toFixed(2)),fr.total.toFixed(2)])); 
+        download('final_results_weighted.csv', toCSV(out)); 
+      };
     }
 
     function renderSettings(root){
