@@ -629,28 +629,142 @@
         }
       }
       else if(setupSubTab === 'rounds'){
+        // Get unique categories from contestants
+        const uniqueCategories = [...new Set(state.contestants.map(c => c.category).filter(Boolean))];
+        
+        // Check if editing mode
+        const editingRoundId = state.ui.editingRoundId || null;
+        const editingRound = editingRoundId ? state.rounds.find(r => r.id === editingRoundId) : null;
+        
         content.innerHTML=`
           <div class="card ${isAdmin?'':'muted'}">
-            <div class="row-between"><h3>Rounds</h3><span class="pill ${Math.abs(weightTotal-100)<=0.5?'ok':'warn'}">Weights: ${weightTotal||0}%</span></div>
-            <div class="spacer"></div>
-            <div class="grid col-2">
-              <input id="rName" placeholder="Round name (e.g., Talent)" ${isAdmin?'':'disabled'}>
-              <input id="rType" placeholder="Type (e.g., Stage)" ${isAdmin?'':'disabled'}>
-              <input id="rSub" placeholder="Sub-round (optional)" ${isAdmin?'':'disabled'}>
-              <input id="rWeight" type="number" placeholder="Weight %" ${isAdmin?'':'disabled'}>
-              <input id="rMax" type="number" placeholder="Max points (0–10)" ${isAdmin?'':'disabled'}>
-              <button class="btn primary" id="rAdd" ${isAdmin?'':'disabled'}>Add</button>
+            <div class="row-between">
+              <h3>Rounds</h3>
+              <span class="pill ${Math.abs(weightTotal-100)<=0.5?'ok':'warn'}">Weights: ${weightTotal||0}%</span>
             </div>
             <div class="spacer"></div>
-            <table><thead><tr><th>Round</th><th>Type</th><th>Sub</th><th>Weight %</th><th>Max</th><th></th></tr></thead><tbody id="rTable"></tbody></table>
+            ${editingRound ? `<div style="background:rgba(34,211,238,0.1);padding:12px;border-radius:8px;margin-bottom:12px;border:1px solid var(--accent)"><strong>Editing:</strong> ${editingRound.name}</div>` : ''}
+            <div class="grid col-2">
+              <input id="rName" placeholder="Round name (e.g., Talent)" value="${editingRound ? htmlAttrEscape(editingRound.name) : ''}" ${isAdmin?'':'disabled'}>
+              <input id="rType" placeholder="Type (e.g., Stage)" value="${editingRound ? htmlAttrEscape(editingRound.type || '') : ''}" ${isAdmin?'':'disabled'}>
+              <input id="rSub" placeholder="Sub-round (optional)" value="${editingRound ? htmlAttrEscape(editingRound.sub || '') : ''}" ${isAdmin?'':'disabled'}>
+              <input id="rWeight" type="number" placeholder="Weight %" value="${editingRound ? editingRound.weight || 0 : ''}" ${isAdmin?'':'disabled'}>
+              <input id="rMax" type="number" placeholder="Max points (0–10)" value="${editingRound ? editingRound.maxPoints || 10 : ''}" ${isAdmin?'':'disabled'}>
+              <div style="grid-column: span 2;">
+                <label>Eligible Categories (leave empty for all)</label>
+                <div id="rCategoriesContainer" style="display:flex;flex-wrap:wrap;gap:8px;padding:12px;border:2px solid var(--border);border-radius:12px;background:#fff;min-height:50px">
+                  ${uniqueCategories.length > 0 ? 
+                    uniqueCategories.map(cat => {
+                      const isChecked = editingRound && editingRound.eligibleCategories && editingRound.eligibleCategories.includes(cat);
+                      return `
+                        <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:#f8fafc;cursor:pointer;font-size:13px">
+                          <input type="checkbox" class="rCatCheck" value="${htmlAttrEscape(cat)}" ${isChecked ? 'checked' : ''} style="width:auto;margin:0">
+                          <span>${cat}</span>
+                        </label>
+                      `;
+                    }).join('') :
+                    '<span class="muted" style="font-size:12px">No categories defined yet. Add contestants with categories first.</span>'
+                  }
+                </div>
+              </div>
+              <div class="row" style="grid-column: span 2;gap:8px">
+                <button class="btn primary" id="rSave" ${isAdmin?'':'disabled'}>${editingRound ? 'Update Round' : 'Add Round'}</button>
+                ${editingRound ? `<button class="btn" id="rCancelEdit" ${isAdmin?'':'disabled'}>Cancel</button>` : ''}
+              </div>
+            </div>
+            <div class="spacer"></div>
+            <table>
+              <thead><tr><th>Round</th><th>Type</th><th>Sub</th><th>Eligible Categories</th><th>Weight %</th><th>Max</th><th></th></tr></thead>
+              <tbody id="rTable"></tbody>
+            </table>
           </div>`;
         
         const rt=document.getElementById('rTable');
-        rt.innerHTML=state.rounds.map(r=>`<tr><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-dr='${r.id}'>Remove</button></td></tr>`).join('');
-        rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); logAudit('remove_round',b.dataset.dr); saveState(); syncToFirestore(); renderSetup(root); });
+        rt.innerHTML=state.rounds.map(r=>{
+          const eligibleText = r.eligibleCategories && r.eligibleCategories.length > 0 
+            ? r.eligibleCategories.join(', ') 
+            : '<span class="muted">All</span>';
+          const isEditing = editingRoundId === r.id;
+          return `<tr ${isEditing ? 'style="background:rgba(34,211,238,0.08)"' : ''}><td>${r.name}</td><td>${r.type||''}</td><td>${r.sub||''}</td><td style="font-size:12px">${eligibleText}</td><td>${r.weight||0}</td><td>${r.maxPoints||10}</td><td><button class='btn' data-edit='${r.id}' ${isEditing ? 'disabled' : ''}>Edit</button> <button class='btn bad' data-dr='${r.id}'>Remove</button></td></tr>`;
+        }).join('');
+        
+        // Edit button handlers
+        rt.querySelectorAll('button[data-edit]').forEach(b=> b.onclick=()=>{ 
+          state.ui.editingRoundId = b.dataset.edit;
+          saveState();
+          renderSetup(root); 
+        });
+        
+        // Remove button handlers
+        rt.querySelectorAll('button[data-dr]').forEach(b=> b.onclick=()=>{ 
+          if(confirm('Are you sure you want to remove this round? All scores for this round will remain but the round definition will be deleted.')) {
+            state.rounds=state.rounds.filter(x=>x.id!==b.dataset.dr); 
+            if(state.ui.editingRoundId === b.dataset.dr) {
+              state.ui.editingRoundId = null;
+            }
+            logAudit('remove_round',b.dataset.dr); 
+            saveState(); 
+            syncToFirestore(); 
+            renderSetup(root);
+          }
+        });
         
         if(isAdmin){
-          document.getElementById('rAdd').onclick=()=>{ const n=document.getElementById('rName').value.trim(); const t=document.getElementById('rType').value.trim(); const s=document.getElementById('rSub').value.trim(); let w=+document.getElementById('rWeight').value||0; let m=+document.getElementById('rMax').value||10; if(!n) return; if(m>10)m=10; if(m<0)m=0; state.rounds.push({id:uid(),name:n,type:t,sub:s,weight:w,maxPoints:m}); logAudit('add_round',n); saveState(); syncToFirestore(); renderSetup(root); };
+          // Cancel edit handler
+          const cancelBtn = document.getElementById('rCancelEdit');
+          if(cancelBtn) {
+            cancelBtn.onclick = () => {
+              state.ui.editingRoundId = null;
+              saveState();
+              renderSetup(root);
+            };
+          }
+          
+          // Save/Update handler
+          document.getElementById('rSave').onclick=()=>{ 
+            const n=document.getElementById('rName').value.trim(); 
+            const t=document.getElementById('rType').value.trim(); 
+            const s=document.getElementById('rSub').value.trim(); 
+            let w=+document.getElementById('rWeight').value||0; 
+            let m=+document.getElementById('rMax').value||10; 
+            
+            // Get selected categories
+            const selectedCategories = Array.from(document.querySelectorAll('.rCatCheck:checked')).map(cb => cb.value);
+            
+            if(!n) { alert('Round name is required'); return; }
+            if(m>10)m=10; 
+            if(m<0)m=0; 
+            
+            const roundData = {
+              name:n,
+              type:t,
+              sub:s,
+              weight:w,
+              maxPoints:m,
+              eligibleCategories: selectedCategories.length > 0 ? selectedCategories : null
+            };
+            
+            if(editingRoundId) {
+              // Update existing round
+              const roundIndex = state.rounds.findIndex(r => r.id === editingRoundId);
+              if(roundIndex !== -1) {
+                state.rounds[roundIndex] = {...state.rounds[roundIndex], ...roundData};
+                logAudit('update_round',`${n} (categories: ${selectedCategories.length > 0 ? selectedCategories.join(', ') : 'All'})`);
+              }
+              state.ui.editingRoundId = null;
+            } else {
+              // Add new round
+              state.rounds.push({
+                id:uid(),
+                ...roundData
+              }); 
+              logAudit('add_round',`${n} (categories: ${selectedCategories.length > 0 ? selectedCategories.join(', ') : 'All'})`);
+            }
+            
+            saveState(); 
+            syncToFirestore(); 
+            renderSetup(root); 
+          };
         }
       }
     }
@@ -710,12 +824,40 @@
       jSel.onchange=()=>{ if(lock) jSel.value=lockedId; fill(); }; rSel.onchange=fill; fill();
 
       function fill(){
-        const j=jSel.value, r=rSel.value; const round=state.rounds.find(x=>x.id===r); const body=document.getElementById('sBody');
+        const j=jSel.value, r=rSel.value; 
+        const round=state.rounds.find(x=>x.id===r); 
+        const body=document.getElementById('sBody');
         const submissionKey=`${j}|${r}`;
         const isSubmitted=!!state.submissions[submissionKey];
         const disabledAttr=isSubmitted?' disabled':'';
-        const rows=[...state.contestants].sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ const key=scoreKey(j,c.id,r); const cur=state.scores[key]||{score:'',notes:''}; return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; }).join('');
-        body.innerHTML=rows||`<tr><td colspan="5" class="muted">Add contestants in Setup</td></tr>`;
+        
+        // Filter contestants based on round's eligible categories
+        let eligibleContestants = [...state.contestants];
+        if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
+          eligibleContestants = eligibleContestants.filter(c => 
+            round.eligibleCategories.includes(c.category)
+          );
+        }
+        
+        // Update contestant count display
+        const totalContestants = state.contestants.length;
+        const eligibleCount = eligibleContestants.length;
+        const countDisplay = document.querySelector('.card.sticky .muted');
+        if(countDisplay) {
+          if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
+            countDisplay.innerHTML = `<span style="font-size:12px">Eligible: <strong>${eligibleCount}</strong> / ${totalContestants} contestants<br><span style="font-size:11px">Categories: ${round.eligibleCategories.join(', ')}</span></span>`;
+          } else {
+            countDisplay.innerHTML = `<span style="font-size:12px">Contestants: ${totalContestants} (All categories)</span>`;
+          }
+        }
+        
+        const rows=eligibleContestants.sort((a,b)=>(a.number??9999)-(b.number??9999)).map(c=>{ 
+          const key=scoreKey(j,c.id,r); 
+          const cur=state.scores[key]||{score:'',notes:''}; 
+          return `<tr><td>${c.number??''}</td><td>${c.name}</td><td>${c.category||''}</td><td><input data-score='${key}' type='number' step='0.1' min='0' max='10' value='${cur.score}'${disabledAttr}/></td><td><input data-notes='${key}' placeholder='Optional notes' value="${htmlAttrEscape(cur.notes||'')}"${disabledAttr}/></td></tr>`; 
+        }).join('');
+        
+        body.innerHTML=rows||`<tr><td colspan="5" class="muted">${round && round.eligibleCategories && round.eligibleCategories.length > 0 ? 'No contestants in eligible categories' : 'Add contestants in Setup'}</td></tr>`;
         
         if(!isSubmitted){
           body.querySelectorAll('input[data-score]').forEach(inp=>{ inp.onchange=()=>{ const key=inp.dataset.score; const v=parseFloat(inp.value||''); const clamped=Math.max(0,Math.min(isNaN(v)?0:v,10)); state.scores[key]=state.scores[key]||{}; state.scores[key].score=clamped; const [jId,cId,rId]=key.split('|'); const judge=state.judges.find(j=>j.id===jId); const contestant=state.contestants.find(c=>c.id===cId); const round=state.rounds.find(r=>r.id===rId); logAudit('set_score',`${judge?.name} → ${contestant?.name} (${round?.name}): ${clamped}`); saveState(); syncToFirestore(); inp.value=clamped; }; });
