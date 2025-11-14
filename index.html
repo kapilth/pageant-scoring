@@ -878,8 +878,32 @@
           return; 
         }
         
-        if(!state.cloud.enabled || !fb.auth) {
-          alert('Please connect to an event first to enable authentication.');
+        // Initialize Firebase if not already done (for admin-first login)
+        if(!state.cloud.enabled) {
+          const firebaseConfig = {
+            apiKey: "AIzaSyCiglilw9_NLuSZUMGgciEnIPwlZ8vVklI",
+            authDomain: "womenfestival2025.firebaseapp.com",
+            projectId: "womenfestival2025",
+            storageBucket: "womenfestival2025.firebasestorage.app",
+            messagingSenderId: "614457754654",
+            appId: "1:614457754654:web:4c0ceeb3c29e38bc2bc1ea"
+          };
+          
+          try {
+            const app = firebase.initializeApp(firebaseConfig);
+            fb.auth = firebase.auth(app);
+            fb.db = firebase.firestore(app);
+            state.cloud.firebaseConfig = firebaseConfig;
+            state.cloud.enabled = true;
+            logAudit('firebase_init', {source: 'admin_login'});
+          } catch(err) {
+            alert('Failed to initialize Firebase: ' + err.message);
+            return;
+          }
+        }
+        
+        if(!fb.auth) {
+          alert('Authentication service not available.');
           return;
         }
         
