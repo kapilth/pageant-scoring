@@ -466,7 +466,7 @@
     function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
 
     const state = loadState() || {
-      judges: [],              // {id,name,code,passwordHash} - code is now hashed
+      judges: [],              // {id,name,code,passwordHash,assignedCategories,assignedRounds}
       contestants: [],         // {id,name,number,category}
       rounds: [],              // {id,name,type,sub,weight,maxPoints,eligibleCategories}
       scores: {},              // key: `${judgeId}|${contestantId}|${roundId}` -> {score,notes}
@@ -1079,22 +1079,35 @@
             <div class="row"><input id="jAddName" placeholder="Judge name" ${isAdmin?'':'disabled'}><input id="jAddPin" placeholder="PIN (4-6 digits)" type="password" ${isAdmin?'':'disabled'} style="max-width:160px"><button class="btn primary" id="jAdd" ${isAdmin?'':'disabled'}>Add</button></div>
             <div class="spacer"></div>
             <table>
-              <thead><tr><th>Name</th><th>PIN Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Name</th><th>PIN Status</th><th>Assignments</th><th>Actions</th></tr></thead>
               <tbody id="jTable"></tbody>
             </table>
           </div>`;
         
         const jt=document.getElementById('jTable');
-        jt.innerHTML=state.judges.map(j=>`
+        jt.innerHTML=state.judges.map(j=>{
+          const hasAssignments = (j.assignedCategories && j.assignedCategories.length > 0) || (j.assignedRounds && j.assignedRounds.length > 0);
+          const assignmentText = hasAssignments ? 
+            `${j.assignedCategories?.length || 0} categories, ${j.assignedRounds?.length || 0} rounds` : 
+            'No assignments';
+          return `
           <tr>
             <td>${j.name}</td>
             <td><span class="pill ${j.passwordHash?'ok':'warn'}">${j.passwordHash?'✓ Secured':'⚠ Plaintext'}</span></td>
+            <td><span class="muted" style="font-size:11px">${assignmentText}</span></td>
             <td>
+              <button class='btn' data-assign='${j.id}' style="font-size:12px;padding:8px 12px">Assign</button>
               <button class='btn' data-reset='${j.id}' style="font-size:12px;padding:8px 12px">Reset PIN</button>
               <button class='btn bad' data-del='${j.id}' style="font-size:12px;padding:8px 12px">Remove</button>
             </td>
           </tr>
-        `).join('');
+        `}).join('');
+        
+        jt.querySelectorAll('button[data-assign]').forEach(b=> b.onclick=()=>{ 
+          const judge = state.judges.find(j=>j.id===b.dataset.assign);
+          if(!judge) return;
+          showAssignmentDialog(judge, root);
+        });
         
         jt.querySelectorAll('button[data-del]').forEach(b=> b.onclick=()=>{ 
           if(confirm(`Remove judge ${state.judges.find(j=>j.id===b.dataset.del)?.name}?`)) {
@@ -1307,12 +1320,100 @@
       }
     }
 
+    // Show assignment dialog for a judge
+    function showAssignmentDialog(judge, root) {
+      const allCategories = [...new Set(state.contestants.map(c => c.category).filter(Boolean))];
+      const allRounds = state.rounds;
+      
+      const currentCategories = judge.assignedCategories || [];
+      const currentRounds = judge.assignedRounds || [];
+      
+      const dialogHtml = `
+        <div style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center" id="assignmentDialog">
+          <div class="card" style="max-width:600px;width:90%;max-height:80vh;overflow-y:auto">
+            <h3>Assign Categories & Rounds to ${judge.name}</h3>
+            <div class="spacer"></div>
+            
+            <h4>Categories</h4>
+            <p class="muted" style="font-size:12px">Select which categories this judge can score (leave empty for all)</p>
+            <div id="categoryCheckboxes" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);padding:12px;border-radius:8px">
+              ${allCategories.length > 0 ? allCategories.map(cat => `
+                <label style="display:block;margin-bottom:8px;cursor:pointer">
+                  <input type="checkbox" value="${cat}" ${currentCategories.includes(cat) ? 'checked' : ''}>
+                  <span style="margin-left:8px">${cat}</span>
+                </label>
+              `).join('') : '<p class="muted">No categories available</p>'}
+            </div>
+            
+            <div class="spacer"></div>
+            
+            <h4>Rounds</h4>
+            <p class="muted" style="font-size:12px">Select which rounds this judge can score (leave empty for all)</p>
+            <div id="roundCheckboxes" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);padding:12px;border-radius:8px">
+              ${allRounds.length > 0 ? allRounds.map(round => {
+                const roundDisplay = `${round.name}${round.sub ? ' — ' + round.sub : ''}`;
+                return `
+                <label style="display:block;margin-bottom:8px;cursor:pointer">
+                  <input type="checkbox" value="${round.id}" ${currentRounds.includes(round.id) ? 'checked' : ''}>
+                  <span style="margin-left:8px">${roundDisplay}</span>
+                </label>
+              `}).join('') : '<p class="muted">No rounds available</p>'}
+            </div>
+            
+            <div class="spacer"></div>
+            
+            <div class="row" style="gap:12px;justify-content:flex-end">
+              <button class="btn" id="cancelAssignment">Cancel</button>
+              <button class="btn primary" id="saveAssignment">Save Assignments</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = dialogHtml;
+      document.body.appendChild(tempDiv.firstElementChild);
+      
+      document.getElementById('cancelAssignment').onclick = () => {
+        document.getElementById('assignmentDialog').remove();
+      };
+      
+      document.getElementById('saveAssignment').onclick = () => {
+        const selectedCategories = Array.from(document.querySelectorAll('#categoryCheckboxes input:checked')).map(cb => cb.value);
+        const selectedRounds = Array.from(document.querySelectorAll('#roundCheckboxes input:checked')).map(cb => cb.value);
+        
+        judge.assignedCategories = selectedCategories;
+        judge.assignedRounds = selectedRounds;
+        
+        logAudit('assign_judge', {judgeId: judge.id, judgeName: judge.name, categories: selectedCategories, rounds: selectedRounds});
+        saveState();
+        syncToFirestore();
+        
+        document.getElementById('assignmentDialog').remove();
+        renderSetup(root);
+      };
+      
+      // Close on background click
+      document.getElementById('assignmentDialog').onclick = (e) => {
+        if(e.target.id === 'assignmentDialog') {
+          document.getElementById('assignmentDialog').remove();
+        }
+      };
+    }
+
     function renderScoring(root){
       const judgeOptions=state.judges.map(j=>`<option value='${j.id}'>${j.name}</option>`).join('');
       const lockedId=state.me.judgeId; const lock=state.me.role==='judge'&&lockedId;
       
-      // Get unique categories from contestants
-      const categories = [...new Set(state.contestants.map(c => c.category).filter(Boolean))];
+      // Get unique categories from contestants, filtered by judge's assignments if locked
+      let categories = [...new Set(state.contestants.map(c => c.category).filter(Boolean))];
+      if(lock) {
+        const currentJudge = state.judges.find(j => j.id === lockedId);
+        const assignedCategories = currentJudge?.assignedCategories || [];
+        if(assignedCategories.length > 0) {
+          categories = categories.filter(cat => assignedCategories.includes(cat));
+        }
+      }
       const categoryOptions = `<option value="">All Categories</option>` + categories.map(cat => `<option value='${cat}'>${cat}</option>`).join('');
       
       root.innerHTML=`
@@ -1336,7 +1437,14 @@
             </div>
             <div style="flex:1;min-width:200px">
               <label>Round</label>
-              <select id="sRound">${state.rounds.map(r=>`<option value='${r.id}'>${r.name} ${r.sub?('— '+r.sub):''} (${r.type||'–'}) • Max ${Math.min(r.maxPoints||10,10)}</option>`).join('')}</select>
+              <select id="sRound">${state.rounds.filter(r => {
+                // If viewing as admin/non-judge, show all rounds
+                if(!lock) return true;
+                // If judge has assignments, filter by them
+                const judge = state.judges.find(j => j.id === lockedId);
+                const assignedRounds = judge?.assignedRounds || [];
+                return assignedRounds.length === 0 || assignedRounds.includes(r.id);
+              }).map(r=>`<option value='${r.id}'>${r.name} ${r.sub?('— '+r.sub):''} (${r.type||'–'}) • Max ${Math.min(r.maxPoints||10,10)}</option>`).join('')}</select>
             </div>
             <div style="flex:1;min-width:200px">
               <label>Category Filter</label>
@@ -1421,6 +1529,15 @@
         if(round && round.eligibleCategories && round.eligibleCategories.length > 0) {
           eligibleContestants = eligibleContestants.filter(c => 
             round.eligibleCategories.includes(c.category)
+          );
+        }
+        
+        // Filter by judge's assigned categories (if any)
+        const currentJudge = state.judges.find(judge => judge.id === j);
+        const assignedCategories = currentJudge?.assignedCategories || [];
+        if(assignedCategories.length > 0) {
+          eligibleContestants = eligibleContestants.filter(c => 
+            assignedCategories.includes(c.category)
           );
         }
         
